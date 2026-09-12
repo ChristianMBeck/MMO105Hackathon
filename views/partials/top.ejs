@@ -29,7 +29,7 @@
         </a>
         <nav class="nav-stack">
           <a class="nav-link <%= page === 'hub' ? 'active' : '' %>" href="/hub"><i class="bi bi-compass"></i> Hub</a>
-          <a class="nav-link <%= page === 'social' ? 'active' : '' %>" href="/social"><i class="bi bi-chat-square-text"></i> Social</a>
+          <a class="nav-link <%= page === 'social' ? 'active' : '' %>" href="/social"><i class="bi bi-camera"></i> Social</a>
           <a class="nav-link <%= page === 'log' ? 'active' : '' %>" href="/log"><i class="bi bi-plus-circle"></i> Log a trip</a>
           <a class="nav-link <%= page === 'record' ? 'active' : '' %>" href="/record"><i class="bi bi-record-circle"></i> Record</a>
           <a class="nav-link <%= page === 'stats' ? 'active' : '' %>" href="/stats"><i class="bi bi-sliders"></i> Stats</a>
@@ -39,7 +39,7 @@
           <a class="nav-link <%= page === 'profile' ? 'active' : '' %>" href="/profile"><i class="bi bi-person"></i> Profile</a>
         </nav>
         <% if (typeof traveler !== "undefined" && traveler) { %>
-        <a class="side-user" href="/profile">
+        <a class="side-user" href="/u/<%= traveler.handle %>">
           <span class="avatar" style="--hue: <%= traveler.avatarHue %>"><%= traveler.initials %></span>
           <span>
             <strong><%= traveler.displayName %></strong>
@@ -56,7 +56,7 @@
             <strong>Waypoint</strong>
           </a>
           <% if (typeof traveler !== "undefined" && traveler) { %>
-          <a class="avatar sm" href="/profile" style="--hue: <%= traveler.avatarHue %>"><%= traveler.displayName.slice(0,1) %></a>
+          <a class="avatar sm" href="/u/<%= traveler.handle %>" style="--hue: <%= traveler.avatarHue %>"><%= traveler.displayName.slice(0,1) %></a>
           <% } %>
         </header>
 

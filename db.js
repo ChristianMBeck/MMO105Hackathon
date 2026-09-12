@@ -183,16 +183,22 @@ const followSchema = new Schema(
 );
 followSchema.index({ follower: 1, followee: 1 }, { unique: true });
 
-const postSchema = new Schema(
+const MAX_PINNED_POSTS = 6;
+
+const socialPostSchema = new Schema(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    body: { type: String, trim: true, default: "", maxlength: 280 },
-    place: { type: String, trim: true, default: "", maxlength: 80 },
-    photoPath: { type: String, trim: true, default: "" },
+    caption: { type: String, trim: true, default: "", maxlength: 280 },
+    photoPath: { type: String, required: true, trim: true },
+    selfiePath: { type: String, default: "", trim: true },
+    pinned: { type: Boolean, default: false, index: true },
+    pinnedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
-postSchema.index({ user: 1, createdAt: -1 });
+socialPostSchema.index({ createdAt: -1 });
+socialPostSchema.index({ user: 1, createdAt: -1 });
+socialPostSchema.index({ user: 1, pinned: 1, pinnedAt: -1 });
 
 const MODE_TO_STAT = {
   car: "milesCar",
@@ -774,17 +780,124 @@ async function unfollowUser(followerId, followeeId) {
   await mongoose.model("Follow").deleteOne({ follower: followerId, followee: followeeId });
 }
 
-async function createSocialPost(userId, { body, place, photoPath }) {
-  const text = String(body || "").trim().slice(0, 280);
-  const where = String(place || "").trim().slice(0, 80);
-  const photo = String(photoPath || "").trim();
-  if (!text && !where && !photo) throw new Error("Add a note, place, or photo.");
-  return mongoose.model("Post").create({
+function socialPhotoUrl(filename) {
+  const name = String(filename || "").trim();
+  if (!name) return "";
+  if (/^https?:\/\//i.test(name) || name.startsWith("/")) return name;
+  if (name.startsWith("demo-")) return `/img/moments/${name}`;
+  return `/social-photos/${name}`;
+}
+
+function formatRelativeTime(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const delta = Date.now() - date.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (delta < minute) return "just now";
+  if (delta < hour) return `${Math.floor(delta / minute)}m ago`;
+  if (delta < day) return `${Math.floor(delta / hour)}h ago`;
+  if (delta < 7 * day) return `${Math.floor(delta / day)}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function presentSocialPost(post, author) {
+  if (!post) return null;
+  const doc = typeof post.toObject === "function" ? post.toObject() : { ...post };
+  return {
+    ...doc,
+    id: String(doc._id),
+    caption: doc.caption || "",
+    photoUrl: socialPhotoUrl(doc.photoPath),
+    selfieUrl: socialPhotoUrl(doc.selfiePath),
+    pinned: Boolean(doc.pinned),
+    author: author ? presentTraveler(author) : null,
+    relativeTime: formatRelativeTime(doc.createdAt),
+  };
+}
+
+async function hydrateSocialPosts(posts) {
+  const ids = [...new Set(posts.map((post) => String(post.user)))];
+  const users = await mongoose.model("User").find({ _id: { $in: ids } }).lean();
+  const byId = new Map(users.map((user) => [String(user._id), user]));
+  return posts.map((post) => presentSocialPost(post, byId.get(String(post.user))));
+}
+
+async function createSocialPost(userId, payload) {
+  const caption = String(payload.caption || "").trim().slice(0, 280);
+  const photoPath = String(payload.photoPath || "").trim();
+  if (!photoPath) throw new Error("Add a photo to share a moment.");
+  const selfiePath = String(payload.selfiePath || "").trim();
+  const createdAt = payload.createdAt ? new Date(payload.createdAt) : new Date();
+  const doc = await mongoose.model("SocialPost").create({
     user: userId,
-    body: text,
-    place: where,
-    photoPath: photo,
+    caption,
+    photoPath,
+    selfiePath,
+    createdAt,
+    updatedAt: createdAt,
   });
+  return presentSocialPost(doc.toObject());
+}
+
+async function listSocialFeed(limit = 40) {
+  const posts = await mongoose
+    .model("SocialPost")
+    .find()
+    .sort({ createdAt: -1 })
+    .limit(Math.max(1, Number(limit) || 40))
+    .lean();
+  return hydrateSocialPosts(posts);
+}
+
+async function listUserSocialPosts(userId, { pinnedOnly = false } = {}) {
+  const filter = { user: userId };
+  if (pinnedOnly) filter.pinned = true;
+  const sort = pinnedOnly ? { pinnedAt: -1, createdAt: -1 } : { createdAt: -1 };
+  const posts = await mongoose.model("SocialPost").find(filter).sort(sort).lean();
+  return hydrateSocialPosts(posts);
+}
+
+async function getSocialPost(postId) {
+  const post = await mongoose.model("SocialPost").findById(postId).lean();
+  if (!post) return null;
+  const author = await mongoose.model("User").findById(post.user).lean();
+  return presentSocialPost(post, author);
+}
+
+async function pinSocialPost(userId, postId) {
+  const SocialPost = mongoose.model("SocialPost");
+  const post = await SocialPost.findById(postId);
+  if (!post) throw new Error("That moment is gone.");
+  if (String(post.user) !== String(userId)) throw new Error("You can only pin your own moments.");
+  if (post.pinned) return presentSocialPost(post.toObject());
+  const pinnedCount = await SocialPost.countDocuments({ user: userId, pinned: true });
+  if (pinnedCount >= MAX_PINNED_POSTS) {
+    throw new Error(`You can pin up to ${MAX_PINNED_POSTS} favorite moments on your account.`);
+  }
+  post.pinned = true;
+  post.pinnedAt = new Date();
+  await post.save();
+  return presentSocialPost(post.toObject());
+}
+
+async function unpinSocialPost(userId, postId) {
+  const post = await mongoose.model("SocialPost").findById(postId);
+  if (!post) throw new Error("That moment is gone.");
+  if (String(post.user) !== String(userId)) throw new Error("You can only unpin your own moments.");
+  post.pinned = false;
+  post.pinnedAt = null;
+  await post.save();
+  return presentSocialPost(post.toObject());
+}
+
+async function deleteSocialPost(userId, postId) {
+  const post = await mongoose.model("SocialPost").findOne({ _id: postId, user: userId });
+  if (!post) throw new Error("You can only remove your own moments.");
+  const snapshot = post.toObject();
+  await post.deleteOne();
+  return snapshot;
 }
 
 async function setTripPrivacy(userId, tripId, privacy) {
@@ -796,53 +909,6 @@ async function setTripPrivacy(userId, tripId, privacy) {
   trip.privacy = privacy;
   await trip.save();
   return trip;
-}
-
-function feedAuthor(user) {
-  return presentTraveler(user);
-}
-
-function tripPlaces(trip) {
-  return [...(trip.countries || []), ...(trip.states || []), ...(trip.monuments || [])];
-}
-
-async function listSocialFeed(userId, limit = 40) {
-  const following = await listFollowingIds(userId);
-  const authors = [userId, ...following];
-  const [posts, trips] = await Promise.all([
-    mongoose.model("Post").find({ user: { $in: authors } }).sort({ createdAt: -1 }).limit(limit).populate("user").lean(),
-    mongoose.model("TravelLog").find({
-      user: { $in: authors },
-      privacy: { $in: ["followers", "everyone"] },
-    }).sort({ occurredAt: -1 }).limit(limit).populate("user").lean(),
-  ]);
-
-  const items = [
-    ...posts.map((post) => ({
-      kind: "post",
-      id: String(post._id),
-      at: post.createdAt,
-      author: feedAuthor(post.user),
-      body: post.body || "",
-      place: post.place || "",
-      photoPath: post.photoPath || "",
-    })),
-    ...trips.map((trip) => ({
-      kind: "trip",
-      id: String(trip._id),
-      at: trip.occurredAt || trip.createdAt,
-      author: feedAuthor(trip.user),
-      title: trip.title || "Trip",
-      notes: trip.notes || "",
-      places: tripPlaces(trip),
-      miles: trip.distanceMiles || 0,
-      mode: trip.mode || "",
-      startLocation: trip.startLocation || "",
-      endLocation: trip.endLocation || "",
-    })),
-  ];
-  items.sort((a, b) => new Date(b.at) - new Date(a.at));
-  return items.slice(0, limit);
 }
 
 async function listPeopleToFollow(userId, q = "") {
@@ -865,78 +931,73 @@ async function listPeopleToFollow(userId, q = "") {
   }));
 }
 
-async function seedSocialDemo(jordanId) {
-  const specs = [
-    {
-      displayName: "Maya Chen",
-      handle: "maya",
-      homeBase: "Taipei",
-      posts: [
-        { body: "Sunrise at Fushimi Inari. Empty path, no crowd.", place: "Kyoto", daysAgo: 2 },
-        { body: "Night market run. Still thinking about the scallion pancakes.", place: "Taipei", daysAgo: 8 },
-      ],
-      trips: [
-        { title: "Kyoto week", countries: "Japan", milesFoot: 28, occurredOn: "2026-08-22", notes: "Temples and trains." },
-      ],
-    },
-    {
-      displayName: "Kenji Sato",
-      handle: "kenji",
-      homeBase: "Osaka",
-      posts: [
-        { body: "Coast highway, almost no traffic.", place: "Big Sur", daysAgo: 4 },
-      ],
-      trips: [
-        { title: "PCH drive", countries: "United States", states: "California", milesCar: 420, occurredOn: "2026-07-11", notes: "San Francisco to San Luis Obispo." },
-      ],
-    },
-    {
-      displayName: "Luca Rossi",
-      handle: "luca",
-      homeBase: "Milan",
-      posts: [
-        { body: "First time seeing the Alps from the train window.", place: "Innsbruck", daysAgo: 6 },
-      ],
-      trips: [
-        { title: "Alpine rail", countries: "Austria, Italy", milesTrain: 310, occurredOn: "2026-06-03", notes: "Milan to Innsbruck." },
-      ],
-    },
-  ];
+const DEMO_MOMENT_SPECS = [
+  {
+    handle: "jordan",
+    displayName: "Jordan Lee",
+    homeBase: "Demo",
+    caption: "Coffee before the train. No timer, just the morning.",
+    photoPath: "demo-cafe.svg",
+    selfiePath: "demo-selfie-jordan.svg",
+    hoursAgo: 2,
+    pin: true,
+  },
+  {
+    handle: "alex",
+    displayName: "Alex Rivera",
+    homeBase: "Brooklyn",
+    caption: "Bridge lights on the way home.",
+    photoPath: "demo-city.svg",
+    selfiePath: "demo-selfie-alex.svg",
+    hoursAgo: 5,
+    pin: true,
+  },
+  {
+    handle: "jordan",
+    displayName: "Jordan Lee",
+    homeBase: "Demo",
+    caption: "Lookout before the descent.",
+    photoPath: "demo-ridge.svg",
+    selfiePath: "demo-selfie-jordan.svg",
+    hoursAgo: 20,
+    pin: true,
+  },
+  {
+    handle: "sam",
+    displayName: "Sam Patel",
+    homeBase: "Boston",
+    caption: "Harbor swim, first of the trip.",
+    photoPath: "demo-harbor.svg",
+    selfiePath: "demo-selfie-sam.svg",
+    hoursAgo: 28,
+    pin: false,
+  },
+];
 
-  const Follow = mongoose.model("Follow");
-  const Post = mongoose.model("Post");
-  for (const spec of specs) {
-    let user = await mongoose.model("User").findOne({ username: spec.handle });
-    if (!user) {
-      user = await createTraveler({
+async function seedDemoSocial() {
+  for (const spec of DEMO_MOMENT_SPECS) {
+    const exists = await mongoose.model("User").exists({ username: spec.handle });
+    if (!exists) {
+      await createTraveler({
         displayName: spec.displayName,
         handle: spec.handle,
         homeBase: spec.homeBase,
       });
     }
-    if (!(await Post.countDocuments({ user: user._id }))) {
-      for (const post of spec.posts) {
-        const createdAt = new Date(Date.now() - post.daysAgo * 24 * 60 * 60 * 1000);
-        await Post.create({
-          user: user._id,
-          body: post.body,
-          place: post.place,
-          createdAt,
-        });
-      }
-    }
-    if (!(await mongoose.model("TravelLog").countDocuments({ user: user._id }))) {
-      for (const trip of spec.trips) {
-        await logTripFromForm(user._id, { ...trip, privacy: "followers" });
-      }
-    }
-    if (String(jordanId) !== String(user._id)) {
-      await Follow.updateOne(
-        { follower: jordanId, followee: user._id },
-        { $setOnInsert: { follower: jordanId, followee: user._id } },
-        { upsert: true }
-      );
-    }
+  }
+
+  if (await mongoose.model("SocialPost").countDocuments()) return;
+
+  for (const spec of DEMO_MOMENT_SPECS) {
+    const user = await mongoose.model("User").findOne({ username: spec.handle });
+    if (!user) continue;
+    const post = await createSocialPost(user._id, {
+      caption: spec.caption,
+      photoPath: spec.photoPath,
+      selfiePath: spec.selfiePath,
+      createdAt: new Date(Date.now() - spec.hoursAgo * 60 * 60 * 1000),
+    });
+    if (spec.pin) await pinSocialPost(user._id, post.id);
   }
 }
 
@@ -969,7 +1030,7 @@ const User = mongoose.models.User || mongoose.model("User", userSchema);
 const TravelLog = mongoose.models.TravelLog || mongoose.model("TravelLog", travelLogSchema);
 const PlaceVisit = mongoose.models.PlaceVisit || mongoose.model("PlaceVisit", placeVisitSchema);
 const Follow = mongoose.models.Follow || mongoose.model("Follow", followSchema);
-const Post = mongoose.models.Post || mongoose.model("Post", postSchema);
+const SocialPost = mongoose.models.SocialPost || mongoose.model("SocialPost", socialPostSchema);
 
 module.exports = {
   mongoose,
@@ -978,13 +1039,14 @@ module.exports = {
   TravelLog,
   PlaceVisit,
   Follow,
-  Post,
+  SocialPost,
   SCORE_WEIGHTS,
   TRAVEL_MODES,
   PLACE_KINDS,
   STAT_META,
   WEIGHTS,
   LADDER,
+  MAX_PINNED_POSTS,
   applyTravelLog,
   logTripFromForm,
   recordTripFromForm,
@@ -994,12 +1056,20 @@ module.exports = {
   setUserStats,
   createTraveler,
   seedDemoMapForUser,
-  seedSocialDemo,
+  seedDemoSocial,
   followUser,
   unfollowUser,
   createSocialPost,
-  setTripPrivacy,
   listSocialFeed,
+  listUserSocialPosts,
+  getSocialPost,
+  pinSocialPost,
+  unpinSocialPost,
+  deleteSocialPost,
+  presentSocialPost,
+  socialPhotoUrl,
+  formatRelativeTime,
+  setTripPrivacy,
   listPeopleToFollow,
   presentTraveler,
   rankFromScore,

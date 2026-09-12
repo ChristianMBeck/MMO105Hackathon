@@ -1,0 +1,59 @@
+<%- include("partials/top") %>
+
+<header class="page-head traveler-head">
+  <span class="avatar lg" style="--hue: <%= profile.avatarHue %>"><%= profile.initials %></span>
+  <div>
+    <p class="eyebrow"><%= rank.label %></p>
+    <h1><%= profile.displayName %></h1>
+    <p class="lede">@<%= profile.handle %><% if (profile.homeBase) { %> · <%= profile.homeBase %><% } %> · <%= formatScore(profile.score) %> XP</p>
+    <% if (profile.bio) { %><p class="lede"><%= profile.bio %></p><% } %>
+    <% if (isSelf) { %>
+      <div class="hero-actions">
+        <a class="btn btn-ghost sm" href="/profile">Edit profile</a>
+        <a class="btn btn-wp sm" href="/social">Share a moment</a>
+      </div>
+    <% } else { %>
+      <div class="hero-actions">
+        <a class="btn btn-ghost sm" href="/social">Back to feed</a>
+      </div>
+    <% } %>
+  </div>
+</header>
+
+<section class="section-head">
+  <h2>Pinned on account</h2>
+  <span class="hint"><%= pinned.length %> / <%= MAX_PINNED_POSTS %></span>
+</section>
+
+<% if (!pinned.length) { %>
+  <div class="empty card-panel">
+    <i class="bi bi-pin-angle"></i>
+    <p><%= isSelf ? "Pin favorite moments from the feed and they will show here on your account." : "No pinned moments on this account yet." %></p>
+  </div>
+<% } else { %>
+  <div class="pin-grid">
+    <% for (const post of pinned) { %>
+      <%- include("partials/moment-card", { post, returnTo: "/u/" + profile.handle }) %>
+    <% } %>
+  </div>
+<% } %>
+
+<section class="section-head">
+  <h2>All moments</h2>
+  <span class="hint"><%= posts.length %> shared</span>
+</section>
+
+<% if (!posts.length) { %>
+  <div class="empty card-panel">
+    <i class="bi bi-camera"></i>
+    <p><%= isSelf ? "Share a photo from Social anytime. You can browse everyone else's posts whether or not you have posted." : "This traveler has not shared a moment yet." %></p>
+  </div>
+<% } else { %>
+  <div class="social-feed">
+    <% for (const post of posts) { %>
+      <%- include("partials/moment-card", { post, returnTo: "/u/" + profile.handle }) %>
+    <% } %>
+  </div>
+<% } %>
+
+<%- include("partials/bottom") %>

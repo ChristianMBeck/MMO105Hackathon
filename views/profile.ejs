@@ -5,8 +5,31 @@
     <p class="eyebrow">Traveler</p>
     <h1><%= traveler.displayName %></h1>
     <p class="lede">@<%= traveler.handle %><% if (traveler.homeBase) { %> · <%= traveler.homeBase %><% } %></p>
+    <div class="hero-actions">
+      <a class="btn btn-wp sm" href="/u/<%= traveler.handle %>">View account</a>
+      <a class="btn btn-ghost sm" href="/social">Social feed</a>
+    </div>
   </div>
 </header>
+
+<section class="section-head">
+  <h2>Pinned moments</h2>
+  <span class="hint"><%= (typeof pinned !== "undefined" ? pinned : []).length %> / <%= MAX_PINNED_POSTS %> favorites on your account</span>
+</section>
+
+<% if (typeof pinned === "undefined" || !pinned.length) { %>
+  <div class="empty card-panel">
+    <i class="bi bi-pin-angle"></i>
+    <p>Pin photos from Social and they stay on your account. You can post as often as you like, and the feed is never locked.</p>
+    <a class="btn btn-wp sm" href="/social">Open social</a>
+  </div>
+<% } else { %>
+  <div class="pin-grid">
+    <% for (const post of pinned) { %>
+      <%- include("partials/moment-card", { post, returnTo: "/profile" }) %>
+    <% } %>
+  </div>
+<% } %>
 
 <div class="split-grid">
   <form class="card-panel form-panel" method="post" action="/profile">

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" role="img" aria-label="Jordan selfie">
+  <rect width="300" height="400" fill="#12343f"/>
+  <circle cx="150" cy="168" r="58" fill="#f3c7a3"/>
+  <rect x="96" y="230" width="108" height="130" rx="40" fill="#2ec4b6"/>
+  <circle cx="128" cy="160" r="8" fill="#1b2430"/>
+  <circle cx="172" cy="160" r="8" fill="#1b2430"/>
+  <path d="M130 190 Q150 204 170 190" fill="none" stroke="#b07a5a" stroke-width="4" stroke-linecap="round"/>
+  <text x="150" y="372" text-anchor="middle" fill="#d7f7f3" font-family="Arial, sans-serif" font-size="22">JL</text>
+</svg>
