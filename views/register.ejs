@@ -1,0 +1,22 @@
+<%- include("partials/header") %>
+
+<div class="auth-wrap">
+  <h1>Create account</h1>
+  <% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+  <% } %>
+  <form method="post" action="/register" class="auth-form">
+    <label class="form-label">Username</label>
+    <input class="form-control" name="username" value="<%= form.username || '' %>" required />
+    <label class="form-label mt-3">Display name</label>
+    <input class="form-control" name="displayName" value="<%= form.displayName || '' %>" required />
+    <label class="form-label mt-3">Email</label>
+    <input class="form-control" type="email" name="email" value="<%= form.email || '' %>" required />
+    <label class="form-label mt-3">Password</label>
+    <input class="form-control" type="password" name="password" minlength="6" required />
+    <button class="btn btn-accent w-100 mt-4" type="submit">Join Travelog</button>
+  </form>
+  <p class="mt-3 text-secondary">Already have an account? <a href="/login">Log in</a></p>
+</div>
+
+<%- include("partials/footer") %>

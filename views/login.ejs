@@ -1,0 +1,19 @@
+<%- include("partials/header") %>
+
+<div class="auth-wrap">
+  <h1>Log in</h1>
+  <% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+  <% } %>
+  <form method="post" action="/login" class="auth-form">
+    <label class="form-label">Username or email</label>
+    <input class="form-control" name="username" required />
+    <label class="form-label mt-3">Password</label>
+    <input class="form-control" type="password" name="password" required />
+    <button class="btn btn-accent w-100 mt-4" type="submit">Enter hub</button>
+  </form>
+  <p class="mt-3 text-secondary">New here? <a href="/register">Create an account</a></p>
+  <p class="hint">Demo travelers: alex, jordan, sam, riley — password <code>password123</code></p>
+</div>
+
+<%- include("partials/footer") %>

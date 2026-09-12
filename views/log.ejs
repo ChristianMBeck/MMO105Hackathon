@@ -1,0 +1,70 @@
+<%- include("partials/header") %>
+
+<div class="log-wrap">
+  <p class="eyebrow">Add stats</p>
+  <h1>Log travel</h1>
+  <p class="text-secondary">
+    Miles and first-time places raise your score. Repeating a county, state, or
+    monument will not award those points again.
+    Foot <%= pointValues.milesOnFoot %>/mi, bike <%= pointValues.milesOnBike %>/mi,
+    train <%= pointValues.milesInTrain %>/mi, car <%= pointValues.milesInCar %>/mi,
+    flown <%= pointValues.milesFlown %>/mi. New county <%= pointValues.county %>,
+    monument <%= pointValues.monument %>, state <%= pointValues.state %>.
+  </p>
+
+  <% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+  <% } %>
+
+  <form method="post" action="/log" class="stat-card">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Title</label>
+        <input class="form-control" name="title" placeholder="Coast highway run" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Date</label>
+        <input class="form-control" type="date" name="date" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Miles in car</label>
+        <input class="form-control" type="number" min="0" step="0.1" name="milesInCar" value="0" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Miles flown</label>
+        <input class="form-control" type="number" min="0" step="0.1" name="milesFlown" value="0" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Miles in train</label>
+        <input class="form-control" type="number" min="0" step="0.1" name="milesInTrain" value="0" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Miles on bike</label>
+        <input class="form-control" type="number" min="0" step="0.1" name="milesOnBike" value="0" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Miles on foot</label>
+        <input class="form-control" type="number" min="0" step="0.1" name="milesOnFoot" value="0" />
+      </div>
+      <div class="col-12">
+        <label class="form-label">Counties visited</label>
+        <input class="form-control" name="counties" placeholder="Travis County, Hays County" />
+      </div>
+      <div class="col-12">
+        <label class="form-label">States visited</label>
+        <input class="form-control" name="states" placeholder="Texas, New Mexico" />
+      </div>
+      <div class="col-12">
+        <label class="form-label">Monuments visited</label>
+        <input class="form-control" name="monuments" placeholder="Alamo, White Sands" />
+      </div>
+      <div class="col-12">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control" name="notes" rows="3"></textarea>
+      </div>
+    </div>
+    <button class="btn btn-accent mt-4" type="submit">Save and score</button>
+  </form>
+</div>
+
+<%- include("partials/footer") %>

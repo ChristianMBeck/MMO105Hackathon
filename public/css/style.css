@@ -1,0 +1,101 @@
+:root {
+  --bg: #101218;
+  --card: #1a1e2a;
+  --text: #f4f1ea;
+  --muted: #b7b3aa;
+  --accent: #f3a43b;
+  --accent-dark: #c77d18;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: Outfit, system-ui, sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(243, 164, 59, 0.16), transparent 32%),
+    var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app-nav {
+  background: rgba(16, 18, 24, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.navbar-brand {
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.btn-accent,
+.btn-accent:hover,
+.btn-accent:focus {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1205;
+  font-weight: 700;
+}
+
+.hero h1,
+.hub-header h1,
+.log-wrap h1 {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.hero h1 { font-size: clamp(2.4rem, 6vw, 4.4rem); max-width: 12ch; }
+.lead { max-width: 38rem; color: var(--muted); }
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.stat-card {
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1.1rem;
+  padding: 1.25rem;
+  height: 100%;
+}
+
+.stat-card h2 { font-size: 1.15rem; font-weight: 700; }
+.stat-label { color: var(--muted); margin-bottom: 0.2rem; font-size: 0.9rem; }
+.stat-value { font-size: 1.8rem; font-weight: 800; margin: 0; }
+.stat-value span { font-size: 0.9rem; color: var(--muted); margin-left: 0.2rem; font-weight: 600; }
+
+.hub-header,
+.score-block {
+  display: flex;
+  justify-content: space-between;
+  gap: 2.5rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.score-block > div {
+  min-width: 8rem;
+}
+
+.score-value,
+.rank-value {
+  font-size: 2.4rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.auth-wrap,
+.log-wrap { max-width: 720px; }
+.auth-wrap { max-width: 420px; }
+
+.hint { color: var(--muted); font-size: 0.9rem; }
+.place-group { color: var(--muted); }
+.place-group strong { color: var(--text); }
+.current-row { outline: 1px solid var(--accent); }
+.form-control, .form-control:focus { background: #12151d; border-color: #2b3142; color: var(--text); }
