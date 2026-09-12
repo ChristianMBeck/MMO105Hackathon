@@ -1,0 +1,80 @@
+<%- include("partials/top") %>
+
+  <form class="record-sheet" id="record-form" action="/record" method="post">
+    <header class="record-top">
+      <a class="btn btn-ghost sm" href="/hub">Discard</a>
+      <div class="record-top-title">
+        <p class="eyebrow">Manual activity</p>
+        <h1>Record a trip</h1>
+      </div>
+      <button class="btn btn-wp sm" type="submit" id="record-create">Create</button>
+    </header>
+
+    <section class="card-panel sport-panel">
+
+      <div class="sport-row" role="radiogroup" aria-label="Sport">
+        <% const sports=[ { id: "walk" , label: "Walk" , icon: "person-walking" }, { id: "ride" , label: "Ride" ,
+          icon: "bicycle" }, { id: "drive" , label: "Drive" , icon: "car-front" }, { id: "train" , label: "Train" ,
+          icon: "train-front" }, { id: "flight" , label: "Flight" , icon: "airplane" }, { id: "hike" , label: "Hike" ,
+          icon: "signpost-2" }, { id: "paddle" , label: "Paddle" , icon: "water" }, { id: "mixed" , label: "Mixed" ,
+          icon: "shuffle" } ]; %>
+          <% for (const sport of sports) { %>
+            <label class="sport-chip <%= sport.id === 'drive' ? 'active' : '' %>">
+              <input type="radio" name="sport" value="<%= sport.id %>" <%=sport.id==="drive" ? "checked" : "" %> />
+              <i class="bi bi-<%= sport.icon %>"></i>
+              <span>
+                <%= sport.label %>
+              </span>
+            </label>
+            <% } %>
+      </div>
+    </section>
+
+    <section class="record-map card-panel">
+      <div class="map-canvas" aria-hidden="true">
+        <svg viewBox="0 0 640 280" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="route" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#ff7a45" />
+              <stop offset="100%" stop-color="#f0c14b" />
+            </linearGradient>
+          </defs>
+          <g fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1">
+            <path d="M0 40 H640 M0 80 H640 M0 120 H640 M0 160 H640 M0 200 H640 M0 240 H640" />
+            <path d="M80 0 V280 M160 0 V280 M240 0 V280 M320 0 V280 M400 0 V280 M480 0 V280 M560 0 V280" />
+          </g>
+          <path d="M48 210 C 120 200, 140 120, 210 130 S 320 90, 360 110 S 470 70, 520 90 S 580 40, 602 52" fill="none"
+            stroke="url(#route)" stroke-width="5" stroke-linecap="round" />
+          <circle cx="48" cy="210" r="8" fill="#2ee6a6" />
+          <circle cx="602" cy="52" r="8" fill="#ff7a45" />
+        </svg>
+        <div class="map-pin start"><i class="bi bi-circle-fill"></i> Start</div>
+        <div class="map-pin finish"><i class="bi bi-geo-alt-fill"></i> Finish</div>
+      </div>
+      <div class="map-meta">
+        <span><i class="bi bi-image"></i> No GPS file yet — drop a route or keep it manual</span>
+        <button class="btn btn-ghost sm" type="button" disabled>Upload GPX</button>
+      </div>
+    </section>
+
+    <section class="card-panel timer-panel">
+      <p class="eyebrow">Moving time</p>
+      <div class="live-timer" id="live-timer" aria-live="polite">00:00:00</div>
+      <div class="timer-actions">
+        <button class="btn btn-wp" type="button" id="timer-start">Start</button>
+        <button class="btn btn-ghost" type="button" id="timer-stop" disabled>Stop</button>
+      </div>
+      <input type="hidden" name="hours" id="timer-hours" value="0" />
+      <input type="hidden" name="minutes" id="timer-minutes" value="0" />
+      <input type="hidden" name="seconds" id="timer-seconds" value="0" />
+      <input type="hidden" name="date" value="<%= typeof today !== 'undefined' ? today : '' %>" />
+      <input type="hidden" name="startTime" id="timer-start-time" value="<%= typeof time !== 'undefined' ? time : '' %>" />
+    </section>
+
+
+
+
+
+  </form>
+
+  <%- include("partials/bottom") %>

@@ -1,0 +1,111 @@
+<%- include("partials/top") %>
+
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Feed</p>
+    <h1>Social</h1>
+    <p class="lede">Posts and shared trips from people you follow.</p>
+  </div>
+</header>
+
+<form class="card-panel form-panel" method="post" action="/social" enctype="multipart/form-data">
+  <label class="form-label" for="body">New post</label>
+  <textarea class="form-control mb-3" id="body" name="body" rows="3" maxlength="280" placeholder="Where you've been"></textarea>
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label" for="place">Place</label>
+      <input class="form-control" id="place" name="place" maxlength="80" placeholder="Optional" />
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="photo">Photo</label>
+      <input class="form-control" id="photo" name="photo" type="file" accept="image/*" />
+    </div>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-wp" type="submit">Post</button>
+  </div>
+</form>
+
+<div class="split-grid social-layout">
+  <section>
+    <div class="section-head tight">
+      <h2>Feed</h2>
+    </div>
+    <% if (!feed.length) { %>
+      <div class="empty card-panel">
+        <i class="bi bi-chat-square-text"></i>
+        <p>Follow someone to fill the feed.</p>
+      </div>
+    <% } else { %>
+      <div class="social-feed">
+        <% for (const item of feed) { %>
+          <article class="card-panel social-card">
+            <header class="social-card-head">
+              <span class="avatar sm" style="--hue: <%= item.author.avatarHue %>"><%= item.author.initials %></span>
+              <div>
+                <strong><%= item.author.displayName %></strong>
+                <small>@<%= item.author.handle %> · <%= new Date(item.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) %></small>
+              </div>
+              <% if (item.kind === "trip") { %><span class="social-kind">Trip</span><% } %>
+            </header>
+            <% if (item.kind === "post") { %>
+              <% if (item.body) { %><p class="social-body"><%= item.body %></p><% } %>
+              <% if (item.place) { %><p class="hint"><%= item.place %></p><% } %>
+              <% if (item.photoPath) { %>
+                <img src="/social-photos/<%= item.photoPath %>" alt="" />
+              <% } %>
+            <% } else { %>
+              <h3><%= item.title %></h3>
+              <% if (item.places.length) { %><p class="hint"><%= item.places.join(" · ") %></p><% } %>
+              <% if (item.startLocation || item.endLocation) { %>
+                <p class="hint"><%= item.startLocation || "Start" %> → <%= item.endLocation || "Finish" %></p>
+              <% } %>
+              <% if (item.miles) { %><p class="hint"><%= item.miles %> mi</p><% } %>
+              <% if (item.notes) { %><p class="social-body"><%= item.notes %></p><% } %>
+            <% } %>
+          </article>
+        <% } %>
+      </div>
+    <% } %>
+  </section>
+
+  <aside>
+    <div class="section-head tight">
+      <h2>Find people</h2>
+    </div>
+    <form class="search-form card-panel" method="get" action="/social">
+      <i class="bi bi-search"></i>
+      <input class="form-control" name="q" value="<%= q %>" placeholder="Name or handle" />
+    </form>
+    <% if (!people.length) { %>
+      <p class="hint">No travelers match.</p>
+    <% } else { %>
+      <ul class="people-list">
+        <% for (const person of people) { %>
+          <li class="card-panel">
+            <span class="avatar sm" style="--hue: <%= person.avatarHue %>"><%= person.initials %></span>
+            <div>
+              <strong><%= person.displayName %></strong>
+              <small>@<%= person.handle %></small>
+            </div>
+            <% if (person.following) { %>
+              <form method="post" action="/social/unfollow">
+                <input type="hidden" name="travelerId" value="<%= person._id %>" />
+                <input type="hidden" name="q" value="<%= q %>" />
+                <button class="btn btn-ghost sm" type="submit">Following</button>
+              </form>
+            <% } else { %>
+              <form method="post" action="/social/follow">
+                <input type="hidden" name="travelerId" value="<%= person._id %>" />
+                <input type="hidden" name="q" value="<%= q %>" />
+                <button class="btn btn-wp sm" type="submit">Follow</button>
+              </form>
+            <% } %>
+          </li>
+        <% } %>
+      </ul>
+    <% } %>
+  </aside>
+</div>
+
+<%- include("partials/bottom") %>

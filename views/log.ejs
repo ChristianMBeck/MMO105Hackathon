@@ -1,0 +1,67 @@
+<%- include("partials/top") %>
+
+<header class="page-head">
+  <div>
+    <h1>Trip Logger</h1>
+    <p class="lede">Pick stops. Miles are estimated from the route.</p>
+  </div>
+</header>
+
+<form class="card-panel form-panel" id="log-form" method="post" action="/log">
+  <div class="row g-3">
+    <div class="col-md-8">
+      <label class="form-label" for="title">Trip name</label>
+      <input class="form-control" id="title" name="title" required maxlength="80" placeholder="Blue Ridge weekend" />
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="occurredOn">Date</label>
+      <input class="form-control" id="occurredOn" name="occurredOn" type="date" value="<%= today %>" />
+    </div>
+    <div class="col-12">
+      <label class="form-label" for="note">Note</label>
+      <textarea class="form-control" id="note" name="note" rows="2" maxlength="500" placeholder="Optional"></textarea>
+    </div>
+  </div>
+
+  <h2 class="form-section">Route</h2>
+  <p class="hint">Search or click the map to add stops. Set the mode between each pair.</p>
+
+  <div class="route-search">
+    <label class="form-label" for="place-search">Add a stop</label>
+    <div class="input-affix">
+      <i class="bi bi-search"></i>
+      <input class="form-control" id="place-search" type="search" autocomplete="off" placeholder="City, landmark, or address" />
+    </div>
+    <div class="route-suggest" id="place-suggest" hidden></div>
+  </div>
+
+  <div class="route-map card-panel" id="route-map" role="application" aria-label="Trip route map"></div>
+  <ol class="route-stops" id="route-stops"></ol>
+  <p class="route-total hint" id="route-total">Add two stops to estimate miles.</p>
+
+  <section class="route-countries" id="route-countries" hidden>
+    <h2 class="form-section">Countries travelled</h2>
+    <p class="hint">Guessed from the straight line on the map. Remove extras or add any that were missed.</p>
+    <div class="country-chips" id="country-chips"></div>
+    <div class="country-add">
+      <input class="form-control" id="country-add" list="country-names" maxlength="80" placeholder="Add a country" />
+      <datalist id="country-names"></datalist>
+      <button class="btn btn-ghost sm" type="button" id="country-add-btn">Add</button>
+      <button class="btn btn-ghost sm" type="button" id="country-guess-btn">Re-guess</button>
+    </div>
+  </section>
+
+  <input type="hidden" name="route" id="route-json" value="" />
+
+  <label class="share-check">
+    <input type="checkbox" name="share" value="1" />
+    Share this trip on Social
+  </label>
+
+  <div class="form-actions">
+    <button class="btn btn-wp" type="submit">Save trip & update score</button>
+    <a class="btn btn-ghost" href="/hub">Cancel</a>
+  </div>
+</form>
+
+<%- include("partials/bottom") %>

@@ -1,0 +1,79 @@
+<%- include("partials/top") %>
+
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Traveler</p>
+    <h1><%= traveler.displayName %></h1>
+    <p class="lede">@<%= traveler.handle %><% if (traveler.homeBase) { %> · <%= traveler.homeBase %><% } %></p>
+  </div>
+</header>
+
+<div class="split-grid">
+  <form class="card-panel form-panel" method="post" action="/profile">
+    <h2 class="form-section" style="margin-top:0">Profile</h2>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="displayName">Name</label>
+        <input class="form-control" id="displayName" name="displayName" required value="<%= traveler.displayName %>" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="handle">Handle</label>
+        <input class="form-control" id="handle" name="handle" required value="<%= traveler.handle %>" />
+      </div>
+      <div class="col-md-8">
+        <label class="form-label" for="homeBase">Home base</label>
+        <input class="form-control" id="homeBase" name="homeBase" value="<%= traveler.homeBase %>" placeholder="City, region" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="avatarHue">Avatar color</label>
+        <input class="form-control" id="avatarHue" name="avatarHue" type="number" min="0" max="360" value="<%= traveler.avatarHue %>" />
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="bio">Bio</label>
+        <textarea class="form-control" id="bio" name="bio" rows="3" maxlength="280"><%= traveler.bio %></textarea>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-wp" type="submit">Save profile</button>
+    </div>
+  </form>
+
+  <div>
+    <form class="card-panel form-panel" method="post" action="/session/switch">
+      <h2 class="form-section" style="margin-top:0">Switch traveler</h2>
+      <p class="hint">Switch demo accounts.</p>
+      <label class="form-label" for="travelerId">Active profile</label>
+      <select class="form-select" id="travelerId" name="travelerId">
+        <% for (const o of others) { %>
+          <option value="<%= o._id %>" <%= String(o._id) === String(traveler._id) ? "selected" : "" %>><%= o.displayName %> (@<%= o.handle %>)</option>
+        <% } %>
+      </select>
+      <div class="form-actions">
+        <button class="btn btn-ghost" type="submit">Travel as this person</button>
+      </div>
+    </form>
+
+    <form class="card-panel form-panel" method="post" action="/travelers">
+      <h2 class="form-section" style="margin-top:0">New traveler</h2>
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label" for="newName">Name</label>
+          <input class="form-control" id="newName" name="displayName" required placeholder="Your name" />
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label" for="newHandle">Handle</label>
+          <input class="form-control" id="newHandle" name="handle" placeholder="optional" />
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label" for="newHome">Home base</label>
+          <input class="form-control" id="newHome" name="homeBase" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-wp" type="submit">Create & start logging</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include("partials/bottom") %>

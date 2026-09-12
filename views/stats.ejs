@@ -1,0 +1,30 @@
+<%- include("partials/top") %>
+
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Lifetime totals</p>
+    <h1>Set your stats</h1>
+    <p class="lede">Sets lifetime totals.</p>
+  </div>
+  <a class="btn btn-ghost" href="/log">Add a trip instead</a>
+</header>
+
+<form class="card-panel form-panel" method="post" action="/stats">
+  <div class="row g-3">
+    <% for (const meta of STAT_META) { %>
+      <div class="col-sm-6 col-lg-4">
+        <label class="form-label" for="stat-<%= meta.key %>"><%= meta.label %></label>
+        <div class="input-affix">
+          <i class="bi bi-<%= meta.icon %>"></i>
+          <input class="form-control" id="stat-<%= meta.key %>" name="<%= meta.key %>" type="number" min="0" step="<%= meta.unit === 'mi' ? '0.1' : '1' %>" value="<%= traveler.stats[meta.key] || 0 %>" />
+        </div>
+        <small class="hint">Weight <%= WEIGHTS[meta.key] %> · current <%= formatStat(meta.key, traveler.stats[meta.key]) %></small>
+      </div>
+    <% } %>
+  </div>
+  <div class="form-actions">
+    <button class="btn btn-wp" type="submit">Recalculate score</button>
+  </div>
+</form>
+
+<%- include("partials/bottom") %>

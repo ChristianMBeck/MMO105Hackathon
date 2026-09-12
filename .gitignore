@@ -1,0 +1,5 @@
+.env
+public/monument-photos/*
+!public/monument-photos/.gitkeep
+public/social-photos/*
+!public/social-photos/.gitkeep

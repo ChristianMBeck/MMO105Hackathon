@@ -1,0 +1,164 @@
+<%- include("partials/top") %>
+
+  <section class="hero-row">
+    <div class="rank-hero card-panel">
+      <div class="rank-hero-copy">
+        <p class="eyebrow">Your travel rank</p>
+        <h1>
+          <%= rank.label %>
+        </h1>
+        <div class="hero-metrics">
+          <div>
+            <span class="k">Score</span>
+            <strong>
+              <%= formatScore(traveler.score) %>
+            </strong>
+          </div>
+          <div>
+            <span class="k">Global</span>
+            <strong>#<%= position %> <small>/ <%= total %></small></strong>
+          </div>
+          <div>
+            <span class="k">Next</span>
+            <strong>
+              <%= rank.next ? rank.next.label : "Maxed" %>
+            </strong>
+          </div>
+        </div>
+        <div class="xp-wrap">
+          <div class="xp-meta">
+            <span>Progress to <%= rank.next ? rank.next.label : "the top of the ladder" %></span>
+            <span>
+              <%= rank.next ? formatScore(rank.pointsToNext) + " XP to go" : "Odyssey" %>
+            </span>
+          </div>
+          <div class="xp-track" role="progressbar" aria-valuenow="<%= Math.round(rank.progress * 100) %>"
+            aria-valuemin="0" aria-valuemax="100">
+            <span style="width: <%= Math.round(rank.progress * 100) %>%"></span>
+          </div>
+        </div>
+        <div class="hero-actions">
+          <a class="btn btn-wp" href="/record"><i class="bi bi-record-circle"></i> Record a trip</a>
+          <a class="btn btn-ghost" href="/log">Quick log</a>
+        </div>
+      </div>
+      <%- include("partials/rank-medal") %>
+    </div>
+  </section>
+
+  <section class="section-head">
+    <h2>Coverage & miles</h2>
+    <a href="/stats">Edit totals</a>
+  </section>
+
+  <div class="stat-grid">
+    <% for (const meta of STAT_META) { %>
+      <article class="stat-tile">
+        <div class="stat-icon"><i class="bi bi-<%= meta.icon %>"></i></div>
+        <div>
+          <p>
+            <%= meta.label %>
+          </p>
+          <strong>
+            <%= formatStat(meta.key, traveler.stats[meta.key]) %>
+          </strong>
+        </div>
+        <span class="weight">+<%= WEIGHTS[meta.key] %> XP</span>
+      </article>
+      <% } %>
+  </div>
+
+  <div class="split-grid">
+    <section class="card-panel">
+      <div class="section-head tight">
+        <h2>How you move</h2>
+      </div>
+      <% const modes = STAT_META.filter(s => s.group === "mode");
+         const modeTotal = modes.reduce((s, m) => s + (traveler.stats[m.key] || 0), 0) || 1;
+      %>
+      <div class="mode-bar" aria-hidden="true">
+        <% for (const m of modes) { %>
+          <span class="mode-<%= m.key %>" style="flex: <%= traveler.stats[m.key] || 0 %>"></span>
+        <% } %>
+      </div>
+      <ul class="mode-legend">
+        <% for (const m of modes) { %>
+          <li>
+            <i class="dot mode-<%= m.key %>"></i>
+            <%= m.label.replace("Miles ", "") %>
+            <strong><%= Math.round(((traveler.stats[m.key] || 0) / modeTotal) * 100) %>%</strong>
+          </li>
+        <% } %>
+      </ul>
+    </section>
+
+    <section class="card-panel">
+      <div class="section-head tight">
+        <h2>Recent trips</h2>
+        <a href="/record">Record</a>
+      </div>
+      <% if (!trips.length) { %>
+        <div class="empty">
+          <i class="bi bi-map"></i>
+          <p>No trips yet.</p>
+          <a class="btn btn-wp sm" href="/record">Record your first trip</a>
+        </div>
+      <% } else { %>
+        <ul class="trip-list">
+          <% for (const trip of trips) { %>
+            <li>
+              <div>
+                <strong><%= trip.title %></strong>
+                <small>
+                  <%= new Date(trip.occurredOn || trip.occurredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) %>
+                  <% if (trip.startLocation || trip.endLocation) { %>
+                    · <%= trip.startLocation || "Start" %> → <%= trip.endLocation || "Finish" %>
+                  <% } %>
+                </small>
+                <% if (trip.note || trip.notes) { %><p><%= trip.note || trip.notes %></p><% } %>
+              </div>
+              <% if (trip.privacy === "followers" || trip.privacy === "everyone") { %>
+                <form method="post" action="/social/trips/<%= trip._id %>/unshare">
+                  <button class="btn btn-ghost sm" type="submit">Shared</button>
+                </form>
+              <% } else { %>
+                <form method="post" action="/social/trips/<%= trip._id %>/share">
+                  <button class="btn btn-ghost sm" type="submit">Share</button>
+                </form>
+              <% } %>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    </section>
+  </div>
+
+  <section class="card-panel">
+    <div class="section-head tight">
+        <h2>Leaderboard</h2>
+      <a href="/leaderboard">Full leaderboard</a>
+    </div>
+    <ol class="mini-board">
+      <% for (let i=0; i < board.length; i++) { const row=board[i]; %>
+        <li class="<%= traveler && String(row._id) === String(traveler._id) ? 'me' : '' %>">
+          <span class="place">
+            <%= i + 1 %>
+          </span>
+          <span class="avatar xs" style="--hue: <%= row.avatarHue %>">
+            <%= row.displayName.slice(0,1) %>
+          </span>
+          <span class="who">
+            <strong>
+              <%= row.displayName %>
+            </strong>
+            <small>@<%= row.handle %></small>
+          </span>
+          <span class="pts">
+            <%= formatScore(row.score) %>
+          </span>
+        </li>
+        <% } %>
+    </ol>
+  </section>
+
+  <%- include("partials/bottom") %>

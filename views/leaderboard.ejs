@@ -1,0 +1,96 @@
+<%- include("partials/top") %>
+
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Global board</p>
+    <h1>Who is covering the most ground</h1>
+    <p class="lede"><% if (typeof traveler !== "undefined" && traveler) { %>#<%= position %> of <%= total %><% } else { %><%= total %> travelers<% } %></p>
+  </div>
+  <form class="search-form" method="get" action="/leaderboard">
+    <i class="bi bi-search"></i>
+    <input class="form-control" name="q" value="<%= q %>" placeholder="Search name, handle, city" />
+  </form>
+</header>
+
+<% if (!travelers.length) { %>
+  <div class="card-panel empty">
+    <i class="bi bi-binoculars"></i>
+    <p>No travelers match that search.</p>
+    <a class="btn btn-ghost" href="/leaderboard">Clear search</a>
+  </div>
+<% } else { %>
+  <% const podium = travelers.slice(0, 3); %>
+  <% if (!q && podium.length === 3) { %>
+    <ol class="podium">
+      <% const podiumOrder = [podium[1], podium[0], podium[2]]; %>
+      <% for (const row of podiumOrder) { %>
+        <li class="<%= traveler && String(row._id) === String(traveler._id) ? 'me' : '' %> place-<%= row.place %>">
+          <span class="avatar lg" style="--hue: <%= row.avatarHue %>"><%= row.displayName.slice(0,1) %></span>
+          <strong><%= row.displayName %></strong>
+          <small>@<%= row.handle %></small>
+          <span class="badge-rank"><%= rankFromScore(row.score).label %></span>
+          <em><%= formatScore(row.score) %></em>
+        </li>
+      <% } %>
+    </ol>
+  <% } %>
+
+  <ol class="board card-panel">
+    <% for (const row of travelers) { %>
+      <li class="<%= traveler && String(row._id) === String(traveler._id) ? 'me' : '' %>">
+        <span class="place"><%= row.place %></span>
+        <span class="avatar" style="--hue: <%= row.avatarHue %>"><%= row.displayName.slice(0,1) %></span>
+        <span class="who">
+          <strong><%= row.displayName %></strong>
+          <small>@<%= row.handle %> · <%= row.homeBase || "No home base" %></small>
+        </span>
+        <span class="hidden-sm"><%= formatScore(row.score) %></span>
+        <span class="pts"><%= formatScore(row.score) %> XP</span>
+      </li>
+    <% } %>
+  </ol>
+<% } %>
+
+<section class="section-head">
+  <h2>Rank ladder</h2>
+</section>
+
+<% if (typeof traveler !== "undefined" && traveler && rank) { %>
+<section class="you-are card-panel">
+  <%- include("partials/rank-medal") %>
+  <div>
+    <p class="eyebrow">Currently</p>
+    <h2><%= rank.label %></h2>
+    <p>Score <%= formatScore(traveler.score) %>. <%= rank.next ? formatScore(rank.pointsToNext) + " XP to " + rank.next.label + "." : "Top of the ladder." %></p>
+  </div>
+</section>
+<% } %>
+
+<ol class="ladder">
+  <% const score = typeof traveler !== "undefined" && traveler ? traveler.score : 0; %>
+  <% const currentKey = rank && rank.key; %>
+  <% for (const step of LADDER) { %>
+    <li class="<%= step.key === currentKey ? 'current' : '' %> <%= score >= step.minScore ? 'unlocked' : 'locked' %>">
+      <span class="swatch" style="background: <%= step.color %>; box-shadow: 0 0 0 3px <%= step.ring %>"></span>
+      <div>
+        <strong><%= step.label %></strong>
+        <small><%= formatScore(step.minScore) %> XP to unlock</small>
+      </div>
+      <% if (step.key === currentKey) { %><span class="pill">You</span><% } %>
+    </li>
+  <% } %>
+</ol>
+
+<section class="card-panel">
+  <h2 class="form-section" style="margin-top:0">How score is built</h2>
+  <div class="weight-table">
+    <% for (const meta of STAT_META) { %>
+      <div>
+        <span><i class="bi bi-<%= meta.icon %>"></i> <%= meta.label %></span>
+        <strong><%= WEIGHTS[meta.key] %> XP</strong>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<%- include("partials/bottom") %>
