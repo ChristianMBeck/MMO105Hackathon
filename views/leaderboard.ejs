@@ -1,0 +1,55 @@
+<%- include("partials/header") %>
+
+<p class="eyebrow">Global ranking</p>
+<h1>Leaderboard</h1>
+<p class="text-secondary">Ranked by score. Distance traveled is the tie-breaker.</p>
+
+<article class="stat-card">
+  <% if (!board.length) { %>
+  <p class="mb-0">No travelers yet.</p>
+  <% } else { %>
+  <div class="table-responsive">
+    <table class="table table-dark table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Traveler</th>
+          <th>Score</th>
+          <th>Distance</th>
+          <th>States</th>
+          <th>Counties</th>
+          <th>Monuments</th>
+          <th>Car</th>
+          <th>Flown</th>
+          <th>Train</th>
+          <th>Bike</th>
+          <th>Foot</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% board.forEach((row) => { %>
+        <tr class="<%= currentUser && currentUser.username === row.username ? 'current-row' : '' %>">
+          <td>#<%= row.rank %></td>
+          <td>
+            <strong><%= row.displayName %></strong>
+            <div class="text-secondary small">@<%= row.username %></div>
+          </td>
+          <td><%= formatNumber(row.stats.score) %></td>
+          <td><%= formatNumber(row.stats.distanceTraveled) %></td>
+          <td><%= formatNumber(row.stats.statesVisited) %></td>
+          <td><%= formatNumber(row.stats.countiesVisited) %></td>
+          <td><%= formatNumber(row.stats.monumentsVisited) %></td>
+          <td><%= formatNumber(row.stats.milesInCar) %></td>
+          <td><%= formatNumber(row.stats.milesFlown) %></td>
+          <td><%= formatNumber(row.stats.milesInTrain) %></td>
+          <td><%= formatNumber(row.stats.milesOnBike) %></td>
+          <td><%= formatNumber(row.stats.milesOnFoot) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+</article>
+
+<%- include("partials/footer") %>
