@@ -155,13 +155,52 @@ async function run() {
   assert(userCount === 3, "3 users seeded");
   assert(logCount === 4, "4 travel logs seeded");
 
+  await seedMapForJordan(jordan);
+  await User.recomputeRanks();
+
+  const mapVisits = await PlaceVisit.find({ user: jordan._id, kind: { $in: ["country", "monument"] } }).lean();
+  const mapCountries = mapVisits.filter((row) => row.kind === "country").length;
+  const mapPins = mapVisits.filter((row) => row.kind === "monument" && Number.isFinite(row.lat) && Number.isFinite(row.lon)).length;
+  assert(mapCountries >= 8, `jordan should have several countries for the map, got ${mapCountries}`);
+  assert(mapPins >= 8, `jordan should have monument pins with coordinates, got ${mapPins}`);
+
   console.log("Seeded users:");
-  for (const row of board) {
+  const boardAfterMap = await User.leaderboard();
+  for (const row of boardAfterMap) {
     console.log(
-      `  #${row.rank} ${row.displayName} (@${row.username})  score=${row.score}  states=${row.stats.statesVisited}`
+      `  #${row.rank} ${row.displayName} (@${row.username})  score=${row.score}  states=${row.stats.statesVisited}  countries=${row.stats.countriesVisited}`
     );
   }
   console.log("All database tests passed.");
+}
+
+async function seedMapForJordan(jordan) {
+  const trips = [
+    { title: "Paris weekend", mode: "plane", miles: 3600, date: "2025-04-12", monuments: ["Eiffel Tower"] },
+    { title: "Rome ruins", mode: "plane", miles: 4200, date: "2025-05-03", monuments: ["Colosseum"] },
+    { title: "London walk", mode: "foot", miles: 12, date: "2025-05-18", monuments: ["Big Ben"] },
+    { title: "Barcelona", mode: "plane", miles: 3900, date: "2025-06-09", monuments: ["Sagrada Família"] },
+    { title: "Tokyo temples", mode: "plane", miles: 5500, date: "2025-07-21", monuments: ["Sensō-ji"] },
+    { title: "Cairo", mode: "plane", miles: 6800, date: "2025-08-02", monuments: ["Pyramids of Giza"] },
+    { title: "Rio", mode: "plane", miles: 5300, date: "2025-09-14", monuments: ["Christ the Redeemer"] },
+    { title: "Cusco to Machu Picchu", mode: "train", miles: 70, date: "2025-10-05", monuments: ["Machu Picchu"] },
+    { title: "Sydney harbour", mode: "plane", miles: 7500, date: "2026-01-11", monuments: ["Sydney Opera House"] },
+    { title: "Agra", mode: "plane", miles: 8000, date: "2026-02-20", monuments: ["Taj Mahal"] },
+    { title: "Beijing", mode: "plane", miles: 6500, date: "2026-03-08", monuments: ["Great Wall of China (Badaling)"] },
+    { title: "Toronto", mode: "plane", miles: 2200, date: "2026-04-02", monuments: ["CN Tower"] },
+  ];
+
+  for (const trip of trips) {
+    const log = await TravelLog.create({
+      user: jordan._id,
+      occurredAt: new Date(trip.date),
+      title: trip.title,
+      mode: trip.mode,
+      distanceMiles: trip.miles,
+      monuments: trip.monuments,
+    });
+    await applyTravelLog(log);
+  }
 }
 
 run()
