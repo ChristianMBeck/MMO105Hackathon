@@ -1,0 +1,7 @@
+<%- include("partials/top") %>
+<div class="empty card-panel">
+  <h1>Something stalled</h1>
+  <p><%= typeof message !== "undefined" ? message : "The server hit an unexpected error." %></p>
+  <a class="btn btn-wp" href="/hub">Return to hub</a>
+</div>
+<%- include("partials/bottom") %>

@@ -1,0 +1,76 @@
+<%- include("partials/top") %>
+
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Trip logger</p>
+    <h1>Add miles. Climb ranks.</h1>
+    <p class="lede">Each field is optional. Whatever you enter is added to your running totals and immediately scored.</p>
+  </div>
+</header>
+
+<form class="card-panel form-panel" method="post" action="/log">
+  <div class="row g-3">
+    <div class="col-md-8">
+      <label class="form-label" for="title">Trip name</label>
+      <input class="form-control" id="title" name="title" required maxlength="80" placeholder="Blue Ridge weekend, I-40 westbound" />
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="occurredOn">Date</label>
+      <input class="form-control" id="occurredOn" name="occurredOn" type="date" value="<%= today %>" />
+    </div>
+    <div class="col-12">
+      <label class="form-label" for="note">Note</label>
+      <textarea class="form-control" id="note" name="note" rows="2" maxlength="500" placeholder="What made this one count?"></textarea>
+    </div>
+  </div>
+
+  <h2 class="form-section">Coverage</h2>
+  <p class="hint">Comma-separated names. First time you log a place, it bumps counties, states, and monuments.</p>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label class="form-label" for="counties">Counties</label>
+      <div class="input-affix">
+        <i class="bi bi-geo-alt"></i>
+        <input class="form-control" id="counties" name="counties" placeholder="Kings County, New York County" />
+      </div>
+      <small class="hint">+<%= WEIGHTS.countiesVisited %> XP each new county</small>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="states">States</label>
+      <div class="input-affix">
+        <i class="bi bi-flag"></i>
+        <input class="form-control" id="states" name="states" placeholder="New York, California" />
+      </div>
+      <small class="hint">+<%= WEIGHTS.statesVisited %> XP each new state</small>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="monuments">Monuments</label>
+      <div class="input-affix">
+        <i class="bi bi-bank"></i>
+        <input class="form-control" id="monuments" name="monuments" placeholder="Statue of Liberty" />
+      </div>
+      <small class="hint">+<%= WEIGHTS.monumentsVisited %> XP each new monument</small>
+    </div>
+  </div>
+
+  <h2 class="form-section">How you got there</h2>
+  <div class="row g-3">
+    <% for (const meta of STAT_META.filter(s => s.group === "mode")) { %>
+      <div class="col-sm-6 col-xl-4">
+        <label class="form-label" for="<%= meta.key %>"><%= meta.label %></label>
+        <div class="input-affix">
+          <i class="bi bi-<%= meta.icon %>"></i>
+          <input class="form-control" id="<%= meta.key %>" name="<%= meta.key %>" type="number" min="0" step="0.1" value="0" />
+        </div>
+        <small class="hint">+<%= WEIGHTS[meta.key] %> XP / mile</small>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-wp" type="submit">Save trip & update score</button>
+    <a class="btn btn-ghost" href="/hub">Cancel</a>
+  </div>
+</form>
+
+<%- include("partials/bottom") %>

@@ -20,6 +20,48 @@ const SCORE_WEIGHTS = {
 const TRAVEL_MODES = ["car", "plane", "train", "bike", "foot", "other"];
 const PLACE_KINDS = ["county", "state", "monument"];
 
+const STAT_META = [
+  { key: "distanceTraveled", label: "Distance traveled", icon: "signpost-2", group: "coverage", unit: "mi" },
+  { key: "countiesVisited", label: "Counties visited", icon: "geo-alt", group: "coverage", unit: "" },
+  { key: "statesVisited", label: "States visited", icon: "flag", group: "coverage", unit: "" },
+  { key: "monumentsVisited", label: "Monuments visited", icon: "bank", group: "coverage", unit: "" },
+  { key: "milesCar", label: "Miles in car", icon: "car-front", group: "mode", unit: "mi" },
+  { key: "milesFlown", label: "Miles flown", icon: "airplane", group: "mode", unit: "mi" },
+  { key: "milesTrain", label: "Miles in train", icon: "train-front", group: "mode", unit: "mi" },
+  { key: "milesBike", label: "Miles on bike", icon: "bicycle", group: "mode", unit: "mi" },
+  { key: "milesFoot", label: "Miles on foot", icon: "person-walking", group: "mode", unit: "mi" },
+];
+
+const WEIGHTS = {
+  distanceTraveled: 0,
+  countiesVisited: SCORE_WEIGHTS.firstCounty,
+  statesVisited: SCORE_WEIGHTS.firstState,
+  monumentsVisited: SCORE_WEIGHTS.firstMonument,
+  milesCar: SCORE_WEIGHTS.miles.car,
+  milesFlown: SCORE_WEIGHTS.miles.plane,
+  milesTrain: SCORE_WEIGHTS.miles.train,
+  milesBike: SCORE_WEIGHTS.miles.bike,
+  milesFoot: SCORE_WEIGHTS.miles.foot,
+};
+
+const LADDER = [
+  { key: "wanderer-1", name: "Wanderer", division: "I", label: "Wanderer I", minScore: 0, color: "#8b9cb3", ring: "rgba(139,156,179,.35)" },
+  { key: "wanderer-2", name: "Wanderer", division: "II", label: "Wanderer II", minScore: 200, color: "#a9b8c9", ring: "rgba(169,184,201,.4)" },
+  { key: "explorer-1", name: "Explorer", division: "I", label: "Explorer I", minScore: 500, color: "#3dd6c6", ring: "rgba(61,214,198,.4)" },
+  { key: "explorer-2", name: "Explorer", division: "II", label: "Explorer II", minScore: 900, color: "#2ec4b6", ring: "rgba(46,196,182,.45)" },
+  { key: "pathfinder", name: "Pathfinder", division: "", label: "Pathfinder", minScore: 1400, color: "#7c5cff", ring: "rgba(124,92,255,.45)" },
+  { key: "voyager", name: "Voyager", division: "", label: "Voyager", minScore: 2200, color: "#ffb020", ring: "rgba(255,176,32,.45)" },
+  { key: "odyssey", name: "Odyssey", division: "", label: "Odyssey", minScore: 3500, color: "#ff5d8f", ring: "rgba(255,93,143,.5)" },
+];
+
+const MODE_FROM_STAT = {
+  milesCar: "car",
+  milesFlown: "plane",
+  milesTrain: "train",
+  milesBike: "bike",
+  milesFoot: "foot",
+};
+
 const statsSubSchema = new Schema(
   {
     distanceTraveled: { type: Number, default: 0, min: 0 },
@@ -43,6 +85,9 @@ const userSchema = new Schema(
     displayName: { type: String, trim: true },
     score: { type: Number, default: 0, min: 0, index: true },
     rank: { type: Number, default: null, min: 1 },
+    homeBase: { type: String, default: "", trim: true },
+    avatarHue: { type: Number, min: 0, max: 360, default: 200 },
+    bio: { type: String, default: "", trim: true, maxlength: 280 },
     stats: { type: statsSubSchema, default: () => ({}) },
   },
   { timestamps: true }
@@ -191,6 +236,147 @@ async function applyTravelLog(travelLog) {
   return { scoreAwarded, newCounties, newStates, newMonuments };
 }
 
+function formatScore(value) {
+  return Math.round(Number(value) || 0).toLocaleString("en-US");
+}
+
+function formatStat(key, value) {
+  const meta = STAT_META.find((item) => item.key === key);
+  const amount = Number(value) || 0;
+  const rounded = meta && meta.unit === "mi" ? Math.round(amount * 10) / 10 : Math.round(amount);
+  return meta && meta.unit === "mi" ? `${rounded.toLocaleString("en-US")} mi` : rounded.toLocaleString("en-US");
+}
+
+function rankFromScore(score) {
+  const points = Number(score) || 0;
+  let current = LADDER[0];
+  let next = LADDER[1] || null;
+  for (let i = 0; i < LADDER.length; i += 1) {
+    if (points >= LADDER[i].minScore) {
+      current = LADDER[i];
+      next = LADDER[i + 1] || null;
+    }
+  }
+  const span = next ? next.minScore - current.minScore : 1;
+  const progress = next ? Math.min(1, Math.max(0, (points - current.minScore) / span)) : 1;
+  return {
+    ...current,
+    progress,
+    pointsToNext: next ? Math.max(0, next.minScore - points) : 0,
+    next,
+  };
+}
+
+function hueFromString(value) {
+  let hue = 0;
+  for (const char of String(value || "")) hue = (hue * 31 + char.charCodeAt(0)) % 360;
+  return hue;
+}
+
+function parseNameList(raw) {
+  return normalizeNames(String(raw || "").split(/[,;\n]+/));
+}
+
+function slugifyHandle(value) {
+  const slug = String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 24);
+  return slug || `traveler${Date.now().toString(36)}`;
+}
+
+function presentTraveler(user) {
+  if (!user) return null;
+  const doc = typeof user.toObject === "function" ? user.toObject() : { ...user };
+  const displayName = doc.displayName || doc.username || "Traveler";
+  const emptyStats = {};
+  for (const meta of STAT_META) emptyStats[meta.key] = 0;
+  return {
+    ...doc,
+    displayName,
+    handle: doc.username,
+    homeBase: doc.homeBase || "",
+    bio: doc.bio || "",
+    avatarHue: Number.isFinite(doc.avatarHue) ? doc.avatarHue : hueFromString(doc.username),
+    initials: displayName.replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || displayName.slice(0, 2).toUpperCase(),
+    stats: { ...emptyStats, ...(doc.stats || {}) },
+  };
+}
+
+function scoreFromStats(stats = {}) {
+  let score = 0;
+  for (const meta of STAT_META) {
+    if (meta.key === "distanceTraveled") continue;
+    score += (Number(stats[meta.key]) || 0) * (WEIGHTS[meta.key] || 0);
+  }
+  return score;
+}
+
+async function logTripFromForm(userId, body) {
+  const counties = parseNameList(body.counties);
+  const states = parseNameList(body.states);
+  const monuments = parseNameList(body.monuments);
+  const title = String(body.title || "").trim();
+  const notes = String(body.note || body.notes || "").trim();
+  const occurredAt = body.occurredOn ? new Date(body.occurredOn) : new Date();
+  const modeMiles = Object.entries(MODE_FROM_STAT)
+    .map(([statKey, mode]) => ({ mode, miles: Number(body[statKey]) || 0 }))
+    .filter((entry) => entry.miles > 0);
+
+  if (!modeMiles.length && !counties.length && !states.length && !monuments.length) {
+    throw new Error("Add miles or at least one place to log a trip.");
+  }
+
+  const legs = modeMiles.length ? modeMiles : [{ mode: "other", miles: 0 }];
+  let first = true;
+  let totalAwarded = 0;
+  for (const leg of legs) {
+    const travelLog = await mongoose.model("TravelLog").create({
+      user: userId,
+      occurredAt,
+      title,
+      notes,
+      mode: leg.mode,
+      distanceMiles: leg.miles,
+      counties: first ? counties : [],
+      states: first ? states : [],
+      monuments: first ? monuments : [],
+    });
+    const result = await applyTravelLog(travelLog);
+    totalAwarded += result.scoreAwarded;
+    first = false;
+  }
+  await mongoose.model("User").recomputeRanks();
+  return totalAwarded;
+}
+
+async function setUserStats(userId, body) {
+  const stats = {};
+  for (const meta of STAT_META) {
+    stats[meta.key] = Math.max(0, Number(body[meta.key]) || 0);
+  }
+  const score = scoreFromStats(stats);
+  await mongoose.model("User").updateOne({ _id: userId }, { $set: { stats, score } });
+  await mongoose.model("User").recomputeRanks();
+  return score;
+}
+
+async function createTraveler({ displayName, handle, homeBase }) {
+  const UserModel = mongoose.model("User");
+  let username = slugifyHandle(handle || displayName);
+  let suffix = 0;
+  while (await UserModel.exists({ username: suffix ? `${username}${suffix}` : username })) suffix += 1;
+  if (suffix) username = `${username}${suffix}`;
+  return UserModel.create({
+    username,
+    email: `${username}@demo.local`,
+    passwordHash: "demo",
+    displayName: String(displayName || username).trim(),
+    homeBase: String(homeBase || "").trim(),
+    avatarHue: hueFromString(username),
+  });
+}
+
 async function connect(uri = process.env.MONGODB_URI) {
   if (!uri) {
     throw new Error("Set MONGODB_URI (for example mongodb://127.0.0.1:27017/travel-log)");
@@ -213,7 +399,18 @@ module.exports = {
   SCORE_WEIGHTS,
   TRAVEL_MODES,
   PLACE_KINDS,
+  STAT_META,
+  WEIGHTS,
+  LADDER,
   applyTravelLog,
+  logTripFromForm,
+  setUserStats,
+  createTraveler,
+  presentTraveler,
+  rankFromScore,
+  formatScore,
+  formatStat,
+  hueFromString,
 };
 
 

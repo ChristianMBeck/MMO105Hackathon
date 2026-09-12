@@ -1,0 +1,12 @@
+<div class="rank-medal" style="--rank: <%= rank.color %>; --ring: <%= rank.ring %>;">
+  <div class="medal-ring">
+    <svg viewBox="0 0 120 120" class="ring-svg" aria-hidden="true">
+      <circle cx="60" cy="60" r="52" class="track" />
+      <circle cx="60" cy="60" r="52" class="fill" pathLength="100" style="stroke-dasharray: <%= Math.round(rank.progress * 100) %> 100;" />
+    </svg>
+    <div class="medal-core">
+      <span class="medal-tier"><%= rank.name %></span>
+      <% if (rank.division) { %><span class="medal-div"><%= rank.division %></span><% } %>
+    </div>
+  </div>
+</div>

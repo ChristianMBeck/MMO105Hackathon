@@ -1,0 +1,6 @@
+<% if (typeof flash !== "undefined" && flash) { %>
+  <div class="toast-banner <%= flash.type %>" role="status">
+    <i class="bi <%= flash.type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle' %>"></i>
+    <span><%= flash.message %></span>
+  </div>
+<% } %>
