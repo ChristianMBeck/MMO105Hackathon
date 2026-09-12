@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const famous = require("./data/famous.json");
 const { canonicalCountryName, countryMatchKeys } = require("./lib/geo");
+const { estimateLegMiles } = require("./lib/route");
 
 const { Schema } = mongoose;
 
@@ -145,7 +146,7 @@ const travelLogSchema = new Schema(
     movingSeconds: { type: Number, default: 0, min: 0 },
     startLocation: { type: String, default: "", trim: true },
     endLocation: { type: String, default: "", trim: true },
-    privacy: { type: String, enum: ["everyone", "followers", "onlyme"], default: "everyone" },
+    privacy: { type: String, enum: ["everyone", "followers", "onlyme"], default: "onlyme" },
     effort: { type: Number, default: 5, min: 1, max: 10 },
   },
   { timestamps: true }
@@ -172,6 +173,26 @@ const placeVisitSchema = new Schema(
 
 placeVisitSchema.index({ user: 1, kind: 1, name: 1 }, { unique: true });
 placeVisitSchema.index({ user: 1, kind: 1 });
+
+const followSchema = new Schema(
+  {
+    follower: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    followee: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  },
+  { timestamps: true }
+);
+followSchema.index({ follower: 1, followee: 1 }, { unique: true });
+
+const postSchema = new Schema(
+  {
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    body: { type: String, trim: true, default: "", maxlength: 280 },
+    place: { type: String, trim: true, default: "", maxlength: 80 },
+    photoPath: { type: String, trim: true, default: "" },
+  },
+  { timestamps: true }
+);
+postSchema.index({ user: 1, createdAt: -1 });
 
 const MODE_TO_STAT = {
   car: "milesCar",
@@ -357,6 +378,12 @@ function presentTraveler(user) {
   };
 }
 
+function privacyFromBody(body = {}) {
+  if (body.share === "1" || body.share === "on") return "followers";
+  if (["everyone", "followers", "onlyme"].includes(body.privacy)) return body.privacy;
+  return "onlyme";
+}
+
 function scoreFromStats(stats = {}) {
   let score = 0;
   for (const meta of STAT_META) {
@@ -366,21 +393,77 @@ function scoreFromStats(stats = {}) {
   return score;
 }
 
+function parseRoutePayload(raw) {
+  if (!raw) return null;
+  try {
+    const route = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const stops = Array.isArray(route.stops) ? route.stops : [];
+    const cleaned = stops
+      .map((stop) => ({
+        name: String(stop.name || "").trim(),
+        lat: Number(stop.lat),
+        lon: Number(stop.lon),
+        country: canonicalCountryName(stop.country || ""),
+        state: String(stop.state || "").trim(),
+      }))
+      .filter((stop) => stop.name && Number.isFinite(stop.lat) && Number.isFinite(stop.lon));
+    if (!cleaned.length) return null;
+    const modes = Array.isArray(route.modes) ? route.modes : [];
+    const legs = [];
+    for (let i = 0; i < cleaned.length - 1; i += 1) {
+      const mode = TRAVEL_MODES.includes(modes[i]) ? modes[i] : "car";
+      legs.push({
+        mode,
+        miles: estimateLegMiles(cleaned[i], cleaned[i + 1], mode),
+      });
+    }
+    const fromStops = [...new Set(cleaned.map((stop) => stop.country).filter(Boolean))];
+    const countries = Object.prototype.hasOwnProperty.call(route, "countries")
+      ? [...new Set((Array.isArray(route.countries) ? route.countries : []).map((name) => canonicalCountryName(name)).filter(Boolean))]
+      : fromStops;
+    const states = [...new Set(
+      cleaned
+        .filter((stop) => stop.state && countryMatchKeys(stop.country).includes("united states"))
+        .map((stop) => stop.state)
+    )];
+    const modeMiles = [];
+    for (const leg of legs) {
+      const existing = modeMiles.find((entry) => entry.mode === leg.mode);
+      if (existing) existing.miles = Math.round((existing.miles + leg.miles) * 10) / 10;
+      else modeMiles.push({ mode: leg.mode, miles: leg.miles });
+    }
+    return {
+      stops: cleaned,
+      modeMiles,
+      countries,
+      states,
+      startLocation: cleaned[0].name,
+      endLocation: cleaned[cleaned.length - 1].name,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function logTripFromForm(userId, body) {
-  const states = parseNameList(body.states);
-  const countries = parseNameList(body.countries).map(canonicalCountryName);
-  const monuments = parseNameList(body.monuments);
+  const routed = parseRoutePayload(body.route);
+  const states = routed ? routed.states : parseNameList(body.states);
+  const countries = routed ? routed.countries : parseNameList(body.countries).map(canonicalCountryName);
+  const monuments = routed ? [] : parseNameList(body.monuments);
   const title = String(body.title || "").trim();
   const notes = String(body.note || body.notes || "").trim();
   const occurredAt = body.occurredOn ? new Date(body.occurredOn) : new Date();
-  const modeMiles = Object.entries(MODE_FROM_STAT)
-    .map(([statKey, mode]) => ({ mode, miles: Number(body[statKey]) || 0 }))
-    .filter((entry) => entry.miles > 0);
+  const modeMiles = routed
+    ? routed.modeMiles
+    : Object.entries(MODE_FROM_STAT)
+      .map(([statKey, mode]) => ({ mode, miles: Number(body[statKey]) || 0 }))
+      .filter((entry) => entry.miles > 0);
 
   if (!modeMiles.length && !states.length && !countries.length && !monuments.length) {
-    throw new Error("Add miles or at least one place to log a trip.");
+    throw new Error("Add at least one stop on the map.");
   }
 
+  const privacy = privacyFromBody(body);
   const legs = modeMiles.length ? modeMiles : [{ mode: "other", miles: 0 }];
   let first = true;
   let totalAwarded = 0;
@@ -395,6 +478,9 @@ async function logTripFromForm(userId, body) {
       states: first ? states : [],
       countries: first ? countries : [],
       monuments: first ? monuments : [],
+      startLocation: first && routed ? routed.startLocation : "",
+      endLocation: first && routed ? routed.endLocation : "",
+      privacy,
     });
     const result = await applyTravelLog(travelLog);
     totalAwarded += result.scoreAwarded;
@@ -437,7 +523,7 @@ async function recordTripFromForm(userId, body) {
     movingSeconds,
     startLocation,
     endLocation,
-    privacy: ["everyone", "followers", "onlyme"].includes(body.privacy) ? body.privacy : "everyone",
+    privacy: privacyFromBody(body),
     effort: Math.min(10, Math.max(1, Number(body.effort) || 5)),
   });
   const result = await applyTravelLog(travelLog);
@@ -667,6 +753,193 @@ async function seedDemoMapForUser(userId) {
   }
 }
 
+async function listFollowingIds(userId) {
+  const rows = await mongoose.model("Follow").find({ follower: userId }).select("followee").lean();
+  return rows.map((row) => row.followee);
+}
+
+async function followUser(followerId, followeeId) {
+  if (String(followerId) === String(followeeId)) throw new Error("You cannot follow yourself.");
+  const Follow = mongoose.model("Follow");
+  const exists = await mongoose.model("User").exists({ _id: followeeId });
+  if (!exists) throw new Error("Traveler not found.");
+  await Follow.updateOne(
+    { follower: followerId, followee: followeeId },
+    { $setOnInsert: { follower: followerId, followee: followeeId } },
+    { upsert: true }
+  );
+}
+
+async function unfollowUser(followerId, followeeId) {
+  await mongoose.model("Follow").deleteOne({ follower: followerId, followee: followeeId });
+}
+
+async function createSocialPost(userId, { body, place, photoPath }) {
+  const text = String(body || "").trim().slice(0, 280);
+  const where = String(place || "").trim().slice(0, 80);
+  const photo = String(photoPath || "").trim();
+  if (!text && !where && !photo) throw new Error("Add a note, place, or photo.");
+  return mongoose.model("Post").create({
+    user: userId,
+    body: text,
+    place: where,
+    photoPath: photo,
+  });
+}
+
+async function setTripPrivacy(userId, tripId, privacy) {
+  if (!["everyone", "followers", "onlyme"].includes(privacy)) {
+    throw new Error("Invalid privacy.");
+  }
+  const trip = await mongoose.model("TravelLog").findOne({ _id: tripId, user: userId });
+  if (!trip) throw new Error("Trip not found.");
+  trip.privacy = privacy;
+  await trip.save();
+  return trip;
+}
+
+function feedAuthor(user) {
+  return presentTraveler(user);
+}
+
+function tripPlaces(trip) {
+  return [...(trip.countries || []), ...(trip.states || []), ...(trip.monuments || [])];
+}
+
+async function listSocialFeed(userId, limit = 40) {
+  const following = await listFollowingIds(userId);
+  const authors = [userId, ...following];
+  const [posts, trips] = await Promise.all([
+    mongoose.model("Post").find({ user: { $in: authors } }).sort({ createdAt: -1 }).limit(limit).populate("user").lean(),
+    mongoose.model("TravelLog").find({
+      user: { $in: authors },
+      privacy: { $in: ["followers", "everyone"] },
+    }).sort({ occurredAt: -1 }).limit(limit).populate("user").lean(),
+  ]);
+
+  const items = [
+    ...posts.map((post) => ({
+      kind: "post",
+      id: String(post._id),
+      at: post.createdAt,
+      author: feedAuthor(post.user),
+      body: post.body || "",
+      place: post.place || "",
+      photoPath: post.photoPath || "",
+    })),
+    ...trips.map((trip) => ({
+      kind: "trip",
+      id: String(trip._id),
+      at: trip.occurredAt || trip.createdAt,
+      author: feedAuthor(trip.user),
+      title: trip.title || "Trip",
+      notes: trip.notes || "",
+      places: tripPlaces(trip),
+      miles: trip.distanceMiles || 0,
+      mode: trip.mode || "",
+      startLocation: trip.startLocation || "",
+      endLocation: trip.endLocation || "",
+    })),
+  ];
+  items.sort((a, b) => new Date(b.at) - new Date(a.at));
+  return items.slice(0, limit);
+}
+
+async function listPeopleToFollow(userId, q = "") {
+  const filter = { _id: { $ne: userId } };
+  const query = String(q || "").trim();
+  if (query) {
+    const rx = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$or = [{ username: rx }, { displayName: rx }];
+  }
+  const users = await mongoose.model("User").find(filter).sort({ displayName: 1, username: 1 }).limit(12).lean();
+  const following = new Set(
+    (await mongoose.model("Follow").find({
+      follower: userId,
+      followee: { $in: users.map((user) => user._id) },
+    }).select("followee").lean()).map((row) => String(row.followee))
+  );
+  return users.map((user) => ({
+    ...presentTraveler(user),
+    following: following.has(String(user._id)),
+  }));
+}
+
+async function seedSocialDemo(jordanId) {
+  const specs = [
+    {
+      displayName: "Maya Chen",
+      handle: "maya",
+      homeBase: "Taipei",
+      posts: [
+        { body: "Sunrise at Fushimi Inari. Empty path, no crowd.", place: "Kyoto", daysAgo: 2 },
+        { body: "Night market run. Still thinking about the scallion pancakes.", place: "Taipei", daysAgo: 8 },
+      ],
+      trips: [
+        { title: "Kyoto week", countries: "Japan", milesFoot: 28, occurredOn: "2026-08-22", notes: "Temples and trains." },
+      ],
+    },
+    {
+      displayName: "Kenji Sato",
+      handle: "kenji",
+      homeBase: "Osaka",
+      posts: [
+        { body: "Coast highway, almost no traffic.", place: "Big Sur", daysAgo: 4 },
+      ],
+      trips: [
+        { title: "PCH drive", countries: "United States", states: "California", milesCar: 420, occurredOn: "2026-07-11", notes: "San Francisco to San Luis Obispo." },
+      ],
+    },
+    {
+      displayName: "Luca Rossi",
+      handle: "luca",
+      homeBase: "Milan",
+      posts: [
+        { body: "First time seeing the Alps from the train window.", place: "Innsbruck", daysAgo: 6 },
+      ],
+      trips: [
+        { title: "Alpine rail", countries: "Austria, Italy", milesTrain: 310, occurredOn: "2026-06-03", notes: "Milan to Innsbruck." },
+      ],
+    },
+  ];
+
+  const Follow = mongoose.model("Follow");
+  const Post = mongoose.model("Post");
+  for (const spec of specs) {
+    let user = await mongoose.model("User").findOne({ username: spec.handle });
+    if (!user) {
+      user = await createTraveler({
+        displayName: spec.displayName,
+        handle: spec.handle,
+        homeBase: spec.homeBase,
+      });
+    }
+    if (!(await Post.countDocuments({ user: user._id }))) {
+      for (const post of spec.posts) {
+        const createdAt = new Date(Date.now() - post.daysAgo * 24 * 60 * 60 * 1000);
+        await Post.create({
+          user: user._id,
+          body: post.body,
+          place: post.place,
+          createdAt,
+        });
+      }
+    }
+    if (!(await mongoose.model("TravelLog").countDocuments({ user: user._id }))) {
+      for (const trip of spec.trips) {
+        await logTripFromForm(user._id, { ...trip, privacy: "followers" });
+      }
+    }
+    if (String(jordanId) !== String(user._id)) {
+      await Follow.updateOne(
+        { follower: jordanId, followee: user._id },
+        { $setOnInsert: { follower: jordanId, followee: user._id } },
+        { upsert: true }
+      );
+    }
+  }
+}
+
 async function createTraveler({ displayName, handle, homeBase }) {
   const UserModel = mongoose.model("User");
   let username = slugifyHandle(handle || displayName);
@@ -695,6 +968,8 @@ async function connect(uri = process.env.MONGODB_URI) {
 const User = mongoose.models.User || mongoose.model("User", userSchema);
 const TravelLog = mongoose.models.TravelLog || mongoose.model("TravelLog", travelLogSchema);
 const PlaceVisit = mongoose.models.PlaceVisit || mongoose.model("PlaceVisit", placeVisitSchema);
+const Follow = mongoose.models.Follow || mongoose.model("Follow", followSchema);
+const Post = mongoose.models.Post || mongoose.model("Post", postSchema);
 
 module.exports = {
   mongoose,
@@ -702,6 +977,8 @@ module.exports = {
   User,
   TravelLog,
   PlaceVisit,
+  Follow,
+  Post,
   SCORE_WEIGHTS,
   TRAVEL_MODES,
   PLACE_KINDS,
@@ -717,6 +994,13 @@ module.exports = {
   setUserStats,
   createTraveler,
   seedDemoMapForUser,
+  seedSocialDemo,
+  followUser,
+  unfollowUser,
+  createSocialPost,
+  setTripPrivacy,
+  listSocialFeed,
+  listPeopleToFollow,
   presentTraveler,
   rankFromScore,
   formatScore,

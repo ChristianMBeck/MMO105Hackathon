@@ -7,6 +7,8 @@ const session = require("express-session");
 const multer = require("multer");
 const { extractGps, matchFamous } = require("./lib/identify");
 const { identifyLandmarks } = require("./lib/landmarks");
+const { canonicalCountryName } = require("./lib/geo");
+const { guessCountriesAlongRoute, listCountryNames, countryAtLatLon } = require("./lib/countries-along");
 const {
   connect,
   mongoose,
@@ -23,6 +25,13 @@ const {
   setUserStats,
   createTraveler,
   seedDemoMapForUser,
+  seedSocialDemo,
+  followUser,
+  unfollowUser,
+  createSocialPost,
+  setTripPrivacy,
+  listSocialFeed,
+  listPeopleToFollow,
   presentTraveler,
   rankFromScore,
   formatScore,
@@ -42,7 +51,9 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PHOTOS_DIR = path.join(__dirname, "public", "monument-photos");
+const SOCIAL_PHOTOS_DIR = path.join(__dirname, "public", "social-photos");
 fs.mkdirSync(PHOTOS_DIR, { recursive: true });
+fs.mkdirSync(SOCIAL_PHOTOS_DIR, { recursive: true });
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -98,6 +109,7 @@ async function enterAsTestUser(req) {
     });
   }
   await seedDemoMapForUser(user._id);
+  await seedSocialDemo(user._id);
   req.session.travelerId = String(user._id);
   return user;
 }
@@ -199,9 +211,77 @@ app.get(
   })
 );
 
+function placeFromNominatim(hit) {
+  const address = hit.address || {};
+  const name = hit.name || address.city || address.town || address.village || address.state || hit.display_name;
+  return {
+    name: String(name || "").split(",")[0].trim(),
+    displayName: hit.display_name || name || "",
+    lat: Number(hit.lat),
+    lon: Number(hit.lon),
+    country: countryAtLatLon(Number(hit.lat), Number(hit.lon)) || canonicalCountryName(address.country || ""),
+    state: address.state || "",
+  };
+}
+
+async function nominatimGet(url) {
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "WaypointHackathon/1.0 (travel log prototype)",
+    },
+  });
+  if (!response.ok) throw new Error("Could not look up that place.");
+  return response.json();
+}
+
 app.get("/log", requireTraveler, (_req, res) => {
-  res.render("log", { page: "log", title: "Log a trip", today: todayStamp() });
+  res.render("log", {
+    page: "log",
+    title: "Log a trip",
+    today: todayStamp(),
+    cartoApiKey: process.env.CARTO_API_KEY || "",
+  });
 });
+
+app.get(
+  "/api/geocode",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const q = String(req.query.q || "").trim();
+    if (q.length < 2) return res.json([]);
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&q=${encodeURIComponent(q)}`;
+    const hits = await nominatimGet(url);
+    res.json((Array.isArray(hits) ? hits : []).map(placeFromNominatim).filter((place) => Number.isFinite(place.lat)));
+  })
+);
+
+app.get(
+  "/api/geocode/reverse",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return res.status(400).json({ error: "Need lat and lon." });
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`;
+    const hit = await nominatimGet(url);
+    res.json(placeFromNominatim(hit));
+  })
+);
+
+app.get("/api/countries", requireTraveler, (_req, res) => {
+  res.json(listCountryNames());
+});
+
+app.post(
+  "/api/route-countries",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const stops = Array.isArray(req.body.stops) ? req.body.stops : [];
+    const modes = Array.isArray(req.body.modes) ? req.body.modes : [];
+    res.json({ countries: guessCountriesAlongRoute(stops, modes) });
+  })
+);
 
 app.get("/record", requireTraveler, (_req, res) => {
   const now = new Date();
@@ -240,6 +320,111 @@ app.post(
       flash(req, "error", err.message);
       res.redirect("/log");
     }
+  })
+);
+
+app.get(
+  "/social",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const q = String(req.query.q || "").trim();
+    const [feed, people] = await Promise.all([
+      listSocialFeed(req.userDoc._id),
+      listPeopleToFollow(req.userDoc._id, q),
+    ]);
+    res.render("social", {
+      page: "social",
+      title: "Social",
+      feed,
+      people,
+      q,
+    });
+  })
+);
+
+app.post(
+  "/social",
+  requireTraveler,
+  (req, res, next) => {
+    upload.single("photo")(req, res, (err) => {
+      if (!err) return next();
+      flash(req, "error", err.message || "Could not upload that photo.");
+      res.redirect("/social");
+    });
+  },
+  asyncHandler(async (req, res) => {
+    try {
+      let photoPath = "";
+      if (req.file) {
+        const extMatch = path.extname(req.file.originalname || "").toLowerCase();
+        const safeExt = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"].includes(extMatch) ? extMatch : ".jpg";
+        const filename = `${crypto.randomUUID()}${safeExt}`;
+        fs.writeFileSync(path.join(SOCIAL_PHOTOS_DIR, filename), req.file.buffer);
+        photoPath = filename;
+      }
+      await createSocialPost(req.userDoc._id, {
+        body: req.body.body,
+        place: req.body.place,
+        photoPath,
+      });
+      flash(req, "success", "Posted.");
+    } catch (err) {
+      flash(req, "error", err.message);
+    }
+    res.redirect("/social");
+  })
+);
+
+app.post(
+  "/social/follow",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    try {
+      await followUser(req.userDoc._id, req.body.travelerId);
+      flash(req, "success", "Following.");
+    } catch (err) {
+      flash(req, "error", err.message);
+    }
+    const q = String(req.body.q || "").trim();
+    res.redirect(q ? `/social?q=${encodeURIComponent(q)}` : "/social");
+  })
+);
+
+app.post(
+  "/social/unfollow",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    await unfollowUser(req.userDoc._id, req.body.travelerId);
+    const q = String(req.body.q || "").trim();
+    res.redirect(q ? `/social?q=${encodeURIComponent(q)}` : "/social");
+  })
+);
+
+app.post(
+  "/social/trips/:id/share",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    try {
+      await setTripPrivacy(req.userDoc._id, req.params.id, "followers");
+      flash(req, "success", "Trip shared.");
+    } catch (err) {
+      flash(req, "error", err.message);
+    }
+    res.redirect(req.get("referer")?.includes("/social") ? "/social" : "/hub");
+  })
+);
+
+app.post(
+  "/social/trips/:id/unshare",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    try {
+      await setTripPrivacy(req.userDoc._id, req.params.id, "onlyme");
+      flash(req, "success", "Trip is private.");
+    } catch (err) {
+      flash(req, "error", err.message);
+    }
+    res.redirect(req.get("referer")?.includes("/social") ? "/social" : "/hub");
   })
 );
 
@@ -505,6 +690,7 @@ async function start() {
     homeBase: "Demo",
   }));
   await seedDemoMapForUser(demo._id);
+  await seedSocialDemo(demo._id);
   const server = app.listen(PORT, "127.0.0.1", () => {
     console.log(`MongoDB connected: ${mongoose.connection.host}/${mongoose.connection.name}`);
     console.log(`App listening on http://127.0.0.1:${PORT}`);

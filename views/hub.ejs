@@ -100,7 +100,7 @@
       <% if (!trips.length) { %>
         <div class="empty">
           <i class="bi bi-map"></i>
-          <p>No trips yet. Record one and it will land here with the score bump.</p>
+          <p>No trips yet.</p>
           <a class="btn btn-wp sm" href="/record">Record your first trip</a>
         </div>
       <% } else { %>
@@ -115,8 +115,17 @@
                     · <%= trip.startLocation || "Start" %> → <%= trip.endLocation || "Finish" %>
                   <% } %>
                 </small>
+                <% if (trip.note || trip.notes) { %><p><%= trip.note || trip.notes %></p><% } %>
               </div>
-              <% if (trip.note || trip.notes) { %><p><%= trip.note || trip.notes %></p><% } %>
+              <% if (trip.privacy === "followers" || trip.privacy === "everyone") { %>
+                <form method="post" action="/social/trips/<%= trip._id %>/unshare">
+                  <button class="btn btn-ghost sm" type="submit">Shared</button>
+                </form>
+              <% } else { %>
+                <form method="post" action="/social/trips/<%= trip._id %>/share">
+                  <button class="btn btn-ghost sm" type="submit">Share</button>
+                </form>
+              <% } %>
             </li>
           <% } %>
         </ul>

@@ -4,7 +4,7 @@
   <div>
     <p class="eyebrow">Global board</p>
     <h1>Who is covering the most ground</h1>
-    <p class="lede"><% if (typeof traveler !== "undefined" && traveler) { %>You are <strong>#<%= position %></strong> of <%= total %> travelers. Rank is score, then who got there first.<% } else { %><%= total %> travelers on the board. Rank is score, then who got there first.<% } %></p>
+    <p class="lede"><% if (typeof traveler !== "undefined" && traveler) { %>#<%= position %> of <%= total %><% } else { %><%= total %> travelers<% } %></p>
   </div>
   <form class="search-form" method="get" action="/leaderboard">
     <i class="bi bi-search"></i>
@@ -61,7 +61,7 @@
   <div>
     <p class="eyebrow">Currently</p>
     <h2><%= rank.label %></h2>
-    <p>Score <%= formatScore(traveler.score) %>. <%= rank.next ? formatScore(rank.pointsToNext) + " XP until " + rank.next.label + "." : "You are at the top of the published ladder." %></p>
+    <p>Score <%= formatScore(traveler.score) %>. <%= rank.next ? formatScore(rank.pointsToNext) + " XP to " + rank.next.label + "." : "Top of the ladder." %></p>
   </div>
 </section>
 <% } %>

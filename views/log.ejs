@@ -3,15 +3,15 @@
 <header class="page-head">
   <div>
     <h1>Trip Logger</h1>
-    <p class="lede">Information added here is added to your running totals and immediately scored</p>
+    <p class="lede">Pick stops. Miles are estimated from the route.</p>
   </div>
 </header>
 
-<form class="card-panel form-panel" method="post" action="/log">
+<form class="card-panel form-panel" id="log-form" method="post" action="/log">
   <div class="row g-3">
     <div class="col-md-8">
       <label class="form-label" for="title">Trip name</label>
-      <input class="form-control" id="title" name="title" required maxlength="80" placeholder="Blue Ridge weekend, I-40 westbound" />
+      <input class="form-control" id="title" name="title" required maxlength="80" placeholder="Blue Ridge weekend" />
     </div>
     <div class="col-md-4">
       <label class="form-label" for="occurredOn">Date</label>
@@ -19,51 +19,44 @@
     </div>
     <div class="col-12">
       <label class="form-label" for="note">Note</label>
-      <textarea class="form-control" id="note" name="note" rows="2" maxlength="500" placeholder="What made this one count?"></textarea>
+      <textarea class="form-control" id="note" name="note" rows="2" maxlength="500" placeholder="Optional"></textarea>
     </div>
   </div>
 
-  <h2 class="form-section">Places Visited</h2>
-  <div class="row g-3">
-    <div class="col-md-4">
-      <label class="form-label" for="countries">Countries</label>
-      <div class="input-affix">
-        <i class="bi bi-globe2"></i>
-        <input class="form-control" id="countries" name="countries" placeholder="France, Japan" />
-      </div>
-      <small class="hint">+<%= WEIGHTS.countriesVisited %> XP each new country</small>
+  <h2 class="form-section">Route</h2>
+  <p class="hint">Search or click the map to add stops. Set the mode between each pair.</p>
+
+  <div class="route-search">
+    <label class="form-label" for="place-search">Add a stop</label>
+    <div class="input-affix">
+      <i class="bi bi-search"></i>
+      <input class="form-control" id="place-search" type="search" autocomplete="off" placeholder="City, landmark, or address" />
     </div>
-    <div class="col-md-4">
-      <label class="form-label" for="states">States</label>
-      <div class="input-affix">
-        <i class="bi bi-flag"></i>
-        <input class="form-control" id="states" name="states" placeholder="New York, California" />
-      </div>
-      <small class="hint">+<%= WEIGHTS.statesVisited %> XP each new state</small>
-    </div>
-    <div class="col-md-4">
-      <label class="form-label" for="monuments">Monuments</label>
-      <div class="input-affix">
-        <i class="bi bi-bank"></i>
-        <input class="form-control" id="monuments" name="monuments" placeholder="Statue of Liberty" />
-      </div>
-      <small class="hint">+<%= WEIGHTS.monumentsVisited %> XP each new monument</small>
-    </div>
+    <div class="route-suggest" id="place-suggest" hidden></div>
   </div>
 
-  <h2 class="form-section">Method of Travel</h2>
-  <div class="row g-3">
-    <% for (const meta of STAT_META.filter(s => s.group === "mode")) { %>
-      <div class="col-sm-6 col-xl-4">
-        <label class="form-label" for="<%= meta.key %>"><%= meta.label %></label>
-        <div class="input-affix">
-          <i class="bi bi-<%= meta.icon %>"></i>
-          <input class="form-control" id="<%= meta.key %>" name="<%= meta.key %>" type="number" min="0" step="0.1" value="0" />
-        </div>
-        <small class="hint">+<%= WEIGHTS[meta.key] %> XP / mile</small>
-      </div>
-    <% } %>
-  </div>
+  <div class="route-map card-panel" id="route-map" role="application" aria-label="Trip route map"></div>
+  <ol class="route-stops" id="route-stops"></ol>
+  <p class="route-total hint" id="route-total">Add two stops to estimate miles.</p>
+
+  <section class="route-countries" id="route-countries" hidden>
+    <h2 class="form-section">Countries travelled</h2>
+    <p class="hint">Guessed from the straight line on the map. Remove extras or add any that were missed.</p>
+    <div class="country-chips" id="country-chips"></div>
+    <div class="country-add">
+      <input class="form-control" id="country-add" list="country-names" maxlength="80" placeholder="Add a country" />
+      <datalist id="country-names"></datalist>
+      <button class="btn btn-ghost sm" type="button" id="country-add-btn">Add</button>
+      <button class="btn btn-ghost sm" type="button" id="country-guess-btn">Re-guess</button>
+    </div>
+  </section>
+
+  <input type="hidden" name="route" id="route-json" value="" />
+
+  <label class="share-check">
+    <input type="checkbox" name="share" value="1" />
+    Share this trip on Social
+  </label>
 
   <div class="form-actions">
     <button class="btn btn-wp" type="submit">Save trip & update score</button>
