@@ -12,6 +12,7 @@ const {
   WEIGHTS,
   LADDER,
   logTripFromForm,
+  recordTripFromForm,
   setUserStats,
   createTraveler,
   presentTraveler,
@@ -118,6 +119,31 @@ app.get(
 app.get("/log", requireTraveler, (_req, res) => {
   res.render("log", { page: "log", title: "Log a trip", today: todayStamp() });
 });
+
+app.get("/record", requireTraveler, (_req, res) => {
+  const now = new Date();
+  res.render("record", {
+    page: "record",
+    title: "Record",
+    today: todayStamp(),
+    time: now.toTimeString().slice(0, 5),
+  });
+});
+
+app.post(
+  "/record",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    try {
+      const awarded = await recordTripFromForm(req.userDoc._id, req.body);
+      flash(req, "success", `Activity recorded. +${formatScore(awarded)} XP`);
+      return req.session.save(() => res.redirect("/hub"));
+    } catch (err) {
+      flash(req, "error", err.message);
+      res.redirect("/record");
+    }
+  })
+);
 
 app.post(
   "/log",

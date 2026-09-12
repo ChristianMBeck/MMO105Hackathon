@@ -62,6 +62,17 @@ const MODE_FROM_STAT = {
   milesFoot: "foot",
 };
 
+const SPORT_TO_MODE = {
+  walk: "foot",
+  hike: "foot",
+  ride: "bike",
+  drive: "car",
+  train: "train",
+  flight: "plane",
+  paddle: "other",
+  mixed: "other",
+};
+
 const statsSubSchema = new Schema(
   {
     distanceTraveled: { type: Number, default: 0, min: 0 },
@@ -127,6 +138,13 @@ const travelLogSchema = new Schema(
     states: { type: [String], default: [] },
     monuments: { type: [String], default: [] },
     scoreAwarded: { type: Number, default: 0, min: 0 },
+    sport: { type: String, enum: ["walk", "ride", "drive", "train", "flight", "hike", "paddle", "mixed"], default: "drive" },
+    elevationFt: { type: Number, default: 0, min: 0 },
+    movingSeconds: { type: Number, default: 0, min: 0 },
+    startLocation: { type: String, default: "", trim: true },
+    endLocation: { type: String, default: "", trim: true },
+    privacy: { type: String, enum: ["everyone", "followers", "onlyme"], default: "everyone" },
+    effort: { type: Number, default: 5, min: 1, max: 10 },
   },
   { timestamps: true }
 );
@@ -350,6 +368,45 @@ async function logTripFromForm(userId, body) {
   return totalAwarded;
 }
 
+async function recordTripFromForm(userId, body) {
+  const sport = SPORT_TO_MODE[body.sport] ? body.sport : "drive";
+  const mode = SPORT_TO_MODE[sport];
+  const miles = Math.max(0, Number(body.distance) || 0);
+  const hours = Math.max(0, Number(body.hours) || 0);
+  const minutes = Math.max(0, Number(body.minutes) || 0);
+  const seconds = Math.max(0, Number(body.seconds) || 0);
+  const title = String(body.title || "").trim();
+  const notes = String(body.description || body.note || "").trim();
+  const startLocation = String(body.from || "").trim();
+  const endLocation = String(body.to || "").trim();
+
+  if (!miles && !startLocation && !endLocation) {
+    throw new Error("Add a distance or at least a start/end location.");
+  }
+
+  let occurredAt = body.date ? new Date(`${body.date}T${body.startTime || "12:00"}`) : new Date();
+  if (Number.isNaN(occurredAt.getTime())) occurredAt = new Date();
+
+  const travelLog = await mongoose.model("TravelLog").create({
+    user: userId,
+    occurredAt,
+    title: title || `${sport} · ${miles || 0} mi`,
+    notes,
+    mode,
+    sport,
+    distanceMiles: miles,
+    elevationFt: Math.max(0, Number(body.elevation) || 0),
+    movingSeconds: hours * 3600 + minutes * 60 + seconds,
+    startLocation,
+    endLocation,
+    privacy: ["everyone", "followers", "onlyme"].includes(body.privacy) ? body.privacy : "everyone",
+    effort: Math.min(10, Math.max(1, Number(body.effort) || 5)),
+  });
+  const result = await applyTravelLog(travelLog);
+  await mongoose.model("User").recomputeRanks();
+  return result.scoreAwarded;
+}
+
 async function setUserStats(userId, body) {
   const stats = {};
   for (const meta of STAT_META) {
@@ -404,6 +461,7 @@ module.exports = {
   LADDER,
   applyTravelLog,
   logTripFromForm,
+  recordTripFromForm,
   setUserStats,
   createTraveler,
   presentTraveler,
