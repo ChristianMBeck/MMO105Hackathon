@@ -1,0 +1,82 @@
+<%- include("partials/header") %>
+
+<header class="hub-header">
+  <div>
+    <p class="eyebrow">Traveler hub</p>
+    <h1><%= user.displayName %></h1>
+    <p class="text-secondary mb-0">@<%= user.username %></p>
+  </div>
+  <div class="score-block">
+    <div>
+      <p class="eyebrow">Score</p>
+      <p class="score-value"><%= formatNumber(user.stats.score) %></p>
+    </div>
+    <div>
+      <p class="eyebrow">Global rank</p>
+      <p class="rank-value">#<%= user.stats.rank %></p>
+    </div>
+  </div>
+</header>
+
+<section class="row g-3 mt-1">
+  <% cards.forEach((card) => { %>
+  <div class="col-6 col-lg-4">
+    <article class="stat-card stat-card-compact">
+      <p class="stat-label"><%= card.label %></p>
+      <p class="stat-value"><%= formatNumber(card.value) %><span><%= card.suffix %></span></p>
+    </article>
+  </div>
+  <% }) %>
+</section>
+
+<section class="row g-4 mt-2">
+  <div class="col-lg-4">
+    <article class="stat-card h-100">
+      <h2>Places logged</h2>
+      <p class="place-group"><strong>States</strong><br /><%= user.stats.states.join(", ") || "None yet" %></p>
+      <p class="place-group"><strong>Counties</strong><br /><%= user.stats.counties.join(", ") || "None yet" %></p>
+      <p class="place-group mb-0"><strong>Monuments</strong><br /><%= user.stats.monuments.join(", ") || "None yet" %></p>
+    </article>
+  </div>
+  <div class="col-lg-8">
+    <article class="stat-card">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Recent trips</h2>
+        <a class="btn btn-accent btn-sm" href="/log">Log travel</a>
+      </div>
+      <% if (!trips.length) { %>
+      <p class="text-secondary mb-0">No trips yet. Log miles or places to start scoring.</p>
+      <% } else { %>
+      <div class="table-responsive">
+        <table class="table table-dark table-borderless align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Trip</th>
+              <th>Distance</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% trips.forEach((trip) => { %>
+            <tr>
+              <td>
+                <strong><%= trip.title %></strong>
+                <div class="text-secondary small">
+                  <%= trip.date.toISOString().slice(0, 10) %>
+                  <%= trip.states.length ? " · " + trip.states.join(", ") : "" %>
+                  <%= trip.monuments.length ? " · " + trip.monuments.join(", ") : "" %>
+                </div>
+              </td>
+              <td><%= formatNumber(trip.distanceAdded) %> mi</td>
+              <td>+<%= formatNumber(trip.scoreAdded) %></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    </article>
+  </div>
+</section>
+
+<%- include("partials/footer") %>

@@ -1,0 +1,43 @@
+<%- include("partials/header") %>
+
+<header class="mb-4">
+  <p class="eyebrow">Global board</p>
+  <h1>Leaderboard</h1>
+  <p class="text-secondary mb-0">Ranked by score. You are highlighted.</p>
+</header>
+
+<article class="stat-card">
+  <div class="table-responsive">
+    <table class="table table-dark table-borderless align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Traveler</th>
+          <th>Score</th>
+          <th>Distance</th>
+          <th>Places</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% travelers.forEach((traveler) => { %>
+        <tr class="<%= traveler.id === currentUser.id ? 'current-row' : '' %>">
+          <td>#<%= traveler.stats.rank %></td>
+          <td>
+            <strong><%= traveler.displayName %></strong>
+            <div class="text-secondary small">@<%= traveler.username %></div>
+          </td>
+          <td><%= formatNumber(traveler.stats.score) %></td>
+          <td><%= formatNumber(traveler.stats.distanceTraveled) %> mi</td>
+          <td>
+            <%= traveler.stats.statesVisited %> states ·
+            <%= traveler.stats.countiesVisited %> counties ·
+            <%= traveler.stats.monumentsVisited %> monuments
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</article>
+
+<%- include("partials/footer") %>

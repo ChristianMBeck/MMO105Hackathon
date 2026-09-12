@@ -1,0 +1,19 @@
+{
+  "name": "travelog",
+  "version": "1.0.0",
+  "description": "Liftoff-style travel log: stats, scoring, and a global leaderboard",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2"
+  }
+}

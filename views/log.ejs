@@ -1,0 +1,65 @@
+<%- include("partials/header") %>
+
+<section class="log-wrap">
+  <p class="eyebrow">Add to your score</p>
+  <h1>Log travel</h1>
+  <p class="text-secondary">
+    Repeating a county, state, or monument does not add extra place points. Miles always count.
+  </p>
+
+  <% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+  <% } %>
+
+  <form method="post" action="/log" class="stat-card">
+    <div class="mb-3">
+      <label class="form-label" for="tripName">Trip name</label>
+      <input class="form-control" id="tripName" name="tripName" value="<%= form.tripName || '' %>" placeholder="Coast highway" autocomplete="off" />
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label" for="milesInCar">Miles in car</label>
+        <input class="form-control" id="milesInCar" name="milesInCar" type="number" min="0" step="0.1" value="<%= form.milesInCar || '' %>" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="milesFlown">Miles flown</label>
+        <input class="form-control" id="milesFlown" name="milesFlown" type="number" min="0" step="0.1" value="<%= form.milesFlown || '' %>" />
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="milesInTrain">Miles in train</label>
+        <input class="form-control" id="milesInTrain" name="milesInTrain" type="number" min="0" step="0.1" value="<%= form.milesInTrain || '' %>" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="milesOnBike">Miles on bike</label>
+        <input class="form-control" id="milesOnBike" name="milesOnBike" type="number" min="0" step="0.1" value="<%= form.milesOnBike || '' %>" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="milesOnFoot">Miles on foot</label>
+        <input class="form-control" id="milesOnFoot" name="milesOnFoot" type="number" min="0" step="0.1" value="<%= form.milesOnFoot || '' %>" />
+      </div>
+    </div>
+
+    <hr class="border-secondary-subtle my-4" />
+
+    <div class="mb-3">
+      <label class="form-label" for="states">States visited</label>
+      <input class="form-control" id="states" name="states" value="<%= form.states || '' %>" placeholder="California, Oregon" />
+      <p class="hint mb-0">Comma-separated. First visit is +<%= pointValues.state %> points.</p>
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="counties">Counties visited</label>
+      <input class="form-control" id="counties" name="counties" value="<%= form.counties || '' %>" placeholder="Los Angeles, Multnomah" />
+      <p class="hint mb-0">First visit is +<%= pointValues.county %> points.</p>
+    </div>
+    <div class="mb-4">
+      <label class="form-label" for="monuments">Monuments visited</label>
+      <input class="form-control" id="monuments" name="monuments" value="<%= form.monuments || '' %>" placeholder="Golden Gate Bridge" />
+      <p class="hint mb-0">First visit is +<%= pointValues.monument %> points.</p>
+    </div>
+
+    <button class="btn btn-accent" type="submit">Save trip</button>
+  </form>
+</section>
+
+<%- include("partials/footer") %>
