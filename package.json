@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Travel log with stats, scoring, and a global leaderboard",
-  "main": "db.js",
+  "main": "app.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node app.js",
     "test": "node test-db.js"
   },
   "engines": {
@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "dotenv": "^16.4.5",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
     "mongoose": "^8.13.0"
   }
 }
