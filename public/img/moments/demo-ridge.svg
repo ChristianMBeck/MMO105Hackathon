@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" role="img" aria-label="Mountain lookout">
+  <defs>
+    <linearGradient id="ridgeSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8ec5ff"/>
+      <stop offset="55%" stop-color="#f7d7b0"/>
+      <stop offset="100%" stop-color="#d9895a"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#ridgeSky)"/>
+  <circle cx="470" cy="140" r="48" fill="#ffe9b8"/>
+  <path d="M0 430 L160 250 L250 340 L380 180 L600 410 V800 H0 Z" fill="#3d4d63"/>
+  <path d="M0 520 L140 360 L230 450 L420 280 L600 500 V800 H0 Z" fill="#2b3a4a"/>
+  <path d="M0 640 C180 560 280 620 600 580 V800 H0 Z" fill="#1d2a36"/>
+  <path d="M160 250 L190 250 L250 340 L210 340 Z" fill="#f7f3ea"/>
+  <path d="M380 180 L420 180 L460 240 L410 250 Z" fill="#f7f3ea"/>
+  <text x="300" y="740" text-anchor="middle" fill="#e8f2ff" font-family="Georgia, serif" font-size="28">the lookout</text>
+</svg>

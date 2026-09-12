@@ -85,3 +85,35 @@ if (timerDisplay && startBtn && stopBtn) {
 
   document.getElementById("record-form")?.addEventListener("submit", render);
 }
+
+document.querySelectorAll("[data-moment-swap]").forEach((frame) => {
+  frame.addEventListener("click", () => {
+    const main = frame.querySelector(".moment-main");
+    const inset = frame.querySelector(".moment-inset img");
+    if (!main || !inset) return;
+    const next = inset.getAttribute("src");
+    inset.setAttribute("src", main.getAttribute("src"));
+    main.setAttribute("src", next);
+  });
+});
+
+function bindMomentPreview(inputId, imgId, pickSelector) {
+  const input = document.getElementById(inputId);
+  const img = document.getElementById(imgId);
+  const pick = document.querySelector(pickSelector);
+  if (!input || !img || !pick) return;
+  input.addEventListener("change", () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    const url = URL.createObjectURL(file);
+    img.dataset.url = url;
+    img.src = url;
+    img.hidden = false;
+    pick.classList.add("has-photo");
+  });
+}
+
+bindMomentPreview("moment-photo", "moment-photo-preview", ".moment-pick-main");
+bindMomentPreview("moment-selfie", "moment-selfie-preview", ".moment-pick-inset");
+
