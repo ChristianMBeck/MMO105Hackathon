@@ -21,15 +21,4 @@ cock and balls
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 import turtle as oscar
