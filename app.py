@@ -15,6 +15,8 @@ cock and balls
 
 #doig oij se
 
+if dick == hard:
+    eohwrhs
 
 
 
