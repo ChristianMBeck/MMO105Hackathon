@@ -48,7 +48,6 @@ async function seed() {
     title: "NYC weekend",
     mode: "car",
     distanceMiles: 120,
-    counties: ["New York County"],
     states: ["New York"],
     monuments: ["Statue of Liberty"],
   });
@@ -60,7 +59,6 @@ async function seed() {
     title: "Brooklyn day",
     mode: "car",
     distanceMiles: 80,
-    counties: ["Kings County"],
     states: ["New York"],
     monuments: [],
   });
@@ -72,7 +70,6 @@ async function seed() {
     title: "LA flight",
     mode: "plane",
     distanceMiles: 2500,
-    counties: ["Los Angeles County"],
     states: ["California"],
     monuments: ["Hollywood Sign"],
   });
@@ -84,7 +81,6 @@ async function seed() {
     title: "Boston Freedom Trail",
     mode: "foot",
     distanceMiles: 8,
-    counties: ["Suffolk County"],
     states: ["Massachusetts"],
     monuments: ["Freedom Trail"],
   });
@@ -106,23 +102,19 @@ async function run() {
 
   const alexExpected =
     expectedMiles("car", 120) +
-    SCORE_WEIGHTS.firstCounty +
     SCORE_WEIGHTS.firstState +
     SCORE_WEIGHTS.firstCountry +
     SCORE_WEIGHTS.firstMonument +
-    expectedMiles("car", 80) +
-    SCORE_WEIGHTS.firstCounty;
+    expectedMiles("car", 80);
 
   const jordanExpected =
     expectedMiles("plane", 2500) +
-    SCORE_WEIGHTS.firstCounty +
     SCORE_WEIGHTS.firstState +
     SCORE_WEIGHTS.firstCountry +
     SCORE_WEIGHTS.firstMonument;
 
   const samExpected =
     expectedMiles("foot", 8) +
-    SCORE_WEIGHTS.firstCounty +
     SCORE_WEIGHTS.firstState +
     SCORE_WEIGHTS.firstMonument;
 
@@ -132,7 +124,6 @@ async function run() {
 
   assert(alexFresh.stats.distanceTraveled === 200, "alex distance");
   assert(alexFresh.stats.milesCar === 200, "alex car miles");
-  assert(alexFresh.stats.countiesVisited === 2, "alex counties (unique)");
   assert(alexFresh.stats.statesVisited === 1, "alex states stay unique after repeat NY");
   assert(alexFresh.stats.monumentsVisited === 1, "alex monuments");
   assert(alexFresh.stats.countriesVisited === 1, "alex countries from Statue of Liberty");
@@ -142,7 +133,7 @@ async function run() {
   assert(samFresh.stats.milesFoot === 8, "sam foot miles");
 
   const alexVisits = await PlaceVisit.countDocuments({ user: alex._id });
-  assert(alexVisits === 5, `alex unique places (2 counties, 1 state, 1 country, 1 monument), got ${alexVisits}`);
+  assert(alexVisits === 3, `alex unique places (1 state, 1 country, 1 monument), got ${alexVisits}`);
 
   const board = await User.leaderboard();
   assert(board[0].username === "jordan", "jordan should rank first");

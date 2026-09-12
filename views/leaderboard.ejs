@@ -51,4 +51,46 @@
   </ol>
 <% } %>
 
+<section class="section-head">
+  <h2>Rank ladder</h2>
+</section>
+
+<% if (typeof traveler !== "undefined" && traveler && rank) { %>
+<section class="you-are card-panel">
+  <%- include("partials/rank-medal") %>
+  <div>
+    <p class="eyebrow">Currently</p>
+    <h2><%= rank.label %></h2>
+    <p>Score <%= formatScore(traveler.score) %>. <%= rank.next ? formatScore(rank.pointsToNext) + " XP until " + rank.next.label + "." : "You are at the top of the published ladder." %></p>
+  </div>
+</section>
+<% } %>
+
+<ol class="ladder">
+  <% const score = typeof traveler !== "undefined" && traveler ? traveler.score : 0; %>
+  <% const currentKey = rank && rank.key; %>
+  <% for (const step of LADDER) { %>
+    <li class="<%= step.key === currentKey ? 'current' : '' %> <%= score >= step.minScore ? 'unlocked' : 'locked' %>">
+      <span class="swatch" style="background: <%= step.color %>; box-shadow: 0 0 0 3px <%= step.ring %>"></span>
+      <div>
+        <strong><%= step.label %></strong>
+        <small><%= formatScore(step.minScore) %> XP to unlock</small>
+      </div>
+      <% if (step.key === currentKey) { %><span class="pill">You</span><% } %>
+    </li>
+  <% } %>
+</ol>
+
+<section class="card-panel">
+  <h2 class="form-section" style="margin-top:0">How score is built</h2>
+  <div class="weight-table">
+    <% for (const meta of STAT_META) { %>
+      <div>
+        <span><i class="bi bi-<%= meta.icon %>"></i> <%= meta.label %></span>
+        <strong><%= WEIGHTS[meta.key] %> XP</strong>
+      </div>
+    <% } %>
+  </div>
+</section>
+
 <%- include("partials/bottom") %>

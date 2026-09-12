@@ -4,7 +4,7 @@
   <div>
     <p class="eyebrow">Check-in</p>
     <h1>Famous monuments</h1>
-    <p class="lede">Upload a photo with GPS. If it was taken near one of about 150 famous sites, it counts as visited and adds XP.</p>
+    <p class="lede">Upload a photo of a monument to have it added to your stats.</p>
   </div>
 </header>
 
@@ -14,6 +14,26 @@
   <button class="btn btn-wp" type="submit">Identify visit</button>
 </form>
 
+<% if (typeof pending !== "undefined" && pending) { %>
+  <section class="card-panel monument-confirm">
+    <img src="/monument-photos/<%= pending.photoPath %>" alt="Uploaded monument photo" />
+    <div>
+      <h2>Which monument is this?</h2>
+      <div class="monument-choices">
+        <% for (const choice of pending.candidates) { %>
+          <form method="post" action="/monuments/confirm">
+            <input type="hidden" name="famousId" value="<%= choice.famousId %>" />
+            <button class="btn btn-wp" type="submit">
+              <%= choice.name %>
+              <small><%= choice.country %></small>
+            </button>
+          </form>
+        <% } %>
+      </div>
+    </div>
+  </section>
+<% } %>
+
 <% if (typeof latest !== "undefined" && latest) { %>
   <section class="card-panel monument-latest">
     <img src="/monument-photos/<%= latest.photoPath %>" alt="<%= latest.name %>" />
@@ -21,7 +41,11 @@
       <p class="eyebrow"><%= latest.newVisit ? "New visit" : "Already in your log" %></p>
       <h2><%= latest.name %></h2>
       <p class="lede"><%= latest.country %></p>
-      <p class="hint"><%= latest.distanceMeters %> m from listed coordinates</p>
+      <% if (latest.distanceMeters != null && latest.distanceMeters !== "") { %>
+        <p class="hint"><%= latest.distanceMeters %> m from listed coordinates</p>
+      <% } else if (latest.source === "vision") { %>
+        <p class="hint">Identified from the photo</p>
+      <% } %>
     </div>
   </section>
 <% } %>

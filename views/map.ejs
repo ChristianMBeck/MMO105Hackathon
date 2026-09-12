@@ -40,6 +40,18 @@
       <span><i class="legend-swatch place"></i> Place pin</span>
     </div>
   </aside>
+
+  <aside class="map-photo-card card-panel" id="map-photo-card" hidden>
+    <button class="map-photo-close" type="button" id="map-photo-close" aria-label="Close photo">
+      <i class="bi bi-x-lg"></i>
+    </button>
+    <img id="map-photo-img" alt="" hidden referrerpolicy="no-referrer" />
+    <p class="map-photo-missing" id="map-photo-missing" hidden>No photo saved for this visit.</p>
+    <div>
+      <h2 id="map-photo-name"></h2>
+      <p id="map-photo-meta"></p>
+    </div>
+  </aside>
 </section>
 
 <%- include("partials/bottom") %>

@@ -1,12 +1,12 @@
-require("dotenv").config();
-
 const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 const fs = require("fs");
 const crypto = require("crypto");
 const express = require("express");
 const session = require("express-session");
 const multer = require("multer");
 const { extractGps, matchFamous } = require("./lib/identify");
+const { identifyLandmarks } = require("./lib/landmarks");
 const {
   connect,
   mongoose,
@@ -22,6 +22,7 @@ const {
   listMapData,
   setUserStats,
   createTraveler,
+  seedDemoMapForUser,
   presentTraveler,
   rankFromScore,
   formatScore,
@@ -96,8 +97,25 @@ async function enterAsTestUser(req) {
       homeBase: "Demo",
     });
   }
+  await seedDemoMapForUser(user._id);
   req.session.travelerId = String(user._id);
   return user;
+}
+
+async function finishMonumentVisit(req, res, match) {
+  const result = await recordMonumentVisit(req.userDoc._id, match);
+  flash(
+    req,
+    "success",
+    result.newVisit ? `${match.name} added. +${formatScore(SCORE_WEIGHTS.firstMonument)} XP` : `${match.name} was already in your log. Photo updated.`
+  );
+  req.session.latestMonument = {
+    ...result.visit,
+    newVisit: result.newVisit,
+    photoPath: match.photoPath,
+    source: match.source || result.visit.source || "",
+  };
+  return req.session.save(() => res.redirect("/monuments"));
 }
 
 function requireTraveler(req, res, next) {
@@ -254,6 +272,7 @@ app.get(
       title: "Monuments",
       error: null,
       latest: req.session.latestMonument || null,
+      pending: req.session.pendingMonument || null,
       entries: await listMonumentVisits(req.userDoc._id),
     });
     delete req.session.latestMonument;
@@ -278,37 +297,69 @@ app.post(
       return res.redirect("/monuments");
     }
 
-    const gps = await extractGps(req.file.buffer);
-    if (!gps) {
-      flash(req, "error", "This photo has no location data. Enable camera location and try another file.");
-      return res.redirect("/monuments");
-    }
-
-    const match = matchFamous(gps.lat, gps.lon);
-    if (!match) {
-      flash(req, "error", "This photo's location does not match a famous monument in our list.");
-      return res.redirect("/monuments");
-    }
-
     const extMatch = path.extname(req.file.originalname || "").toLowerCase();
     const safeExt = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"].includes(extMatch) ? extMatch : ".jpg";
     const filename = `${crypto.randomUUID()}${safeExt}`;
     fs.writeFileSync(path.join(PHOTOS_DIR, filename), req.file.buffer);
 
-    const result = await recordMonumentVisit(req.userDoc._id, {
-      ...match,
-      lat: gps.lat,
-      lon: gps.lon,
-      photoPath: filename,
-    });
+    const gps = await extractGps(req.file.buffer);
+    const gpsMatch = gps ? matchFamous(gps.lat, gps.lon) : null;
+    if (gpsMatch) {
+      return finishMonumentVisit(req, res, {
+        ...gpsMatch,
+        lat: gps.lat,
+        lon: gps.lon,
+        photoPath: filename,
+        source: "exif",
+      });
+    }
 
-    flash(
-      req,
-      "success",
-      result.newVisit ? `${match.name} added. +${formatScore(SCORE_WEIGHTS.firstMonument)} XP` : `${match.name} was already in your log. Photo updated.`
-    );
-    req.session.latestMonument = { ...result.visit, newVisit: result.newVisit, photoPath: filename };
+    let candidates = [];
+    try {
+      candidates = await identifyLandmarks(req.file.buffer);
+    } catch (err) {
+      flash(req, "error", err.message || "Could not identify that photo.");
+      return res.redirect("/monuments");
+    }
+
+    if (!candidates.length) {
+      flash(req, "error", "No listed monument matched this photo. Try another angle, or a photo with location on.");
+      return res.redirect("/monuments");
+    }
+
+    req.session.pendingMonument = {
+      photoPath: filename,
+      candidates,
+      source: "vision",
+    };
+    flash(req, "success", "Photo matched. Confirm the monument to add it.");
     return req.session.save(() => res.redirect("/monuments"));
+  })
+);
+
+app.post(
+  "/monuments/confirm",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const pending = req.session.pendingMonument;
+    if (!pending || !pending.photoPath) {
+      flash(req, "error", "Upload a photo first.");
+      return res.redirect("/monuments");
+    }
+
+    const famousId = String(req.body.famousId || "");
+    const match = (pending.candidates || []).find((row) => row.famousId === famousId);
+    if (!match) {
+      flash(req, "error", "Pick one of the suggested monuments.");
+      return res.redirect("/monuments");
+    }
+
+    delete req.session.pendingMonument;
+    return finishMonumentVisit(req, res, {
+      ...match,
+      photoPath: pending.photoPath,
+      source: pending.source || "vision",
+    });
   })
 );
 
@@ -350,16 +401,13 @@ app.get(
       travelers,
       position: mine ? mine.place : "—",
       total: await User.countDocuments(),
+      rank: me ? rankFromScore(me.score) : null,
     });
   })
 );
 
-app.get("/ranks", requireTraveler, (_req, res) => {
-  res.render("ranks", {
-    page: "ranks",
-    title: "Ranks",
-    rank: rankFromScore(res.locals.traveler.score),
-  });
+app.get("/ranks", (_req, res) => {
+  res.redirect("/leaderboard");
 });
 
 app.get(
@@ -451,6 +499,12 @@ async function start() {
   if (mongoose.connection.readyState !== 1) {
     throw new Error("MongoDB did not reach a connected state");
   }
+  const demo = (await User.findOne({ username: "jordan" })) || (await createTraveler({
+    displayName: "Jordan Lee",
+    handle: "jordan",
+    homeBase: "Demo",
+  }));
+  await seedDemoMapForUser(demo._id);
   const server = app.listen(PORT, "127.0.0.1", () => {
     console.log(`MongoDB connected: ${mongoose.connection.host}/${mongoose.connection.name}`);
     console.log(`App listening on http://127.0.0.1:${PORT}`);
