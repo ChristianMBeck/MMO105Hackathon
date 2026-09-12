@@ -23,11 +23,20 @@ const {
   setUserStats,
   createTraveler,
   seedDemoMapForUser,
+  seedDemoSocial,
   presentTraveler,
   rankFromScore,
   formatScore,
   formatStat,
   SCORE_WEIGHTS,
+  MAX_PINNED_POSTS,
+  createSocialPost,
+  listSocialFeed,
+  listUserSocialPosts,
+  pinSocialPost,
+  unpinSocialPost,
+  deleteSocialPost,
+  formatRelativeTime,
 } = require("./db");
 
 const DEFAULT_URI = "mongodb://127.0.0.1:27017/travel-log";
@@ -42,7 +51,9 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 const PHOTOS_DIR = path.join(__dirname, "public", "monument-photos");
+const SOCIAL_DIR = path.join(__dirname, "public", "social-photos");
 fs.mkdirSync(PHOTOS_DIR, { recursive: true });
+fs.mkdirSync(SOCIAL_DIR, { recursive: true });
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -69,6 +80,8 @@ app.locals.LADDER = LADDER;
 app.locals.formatScore = formatScore;
 app.locals.formatStat = formatStat;
 app.locals.rankFromScore = rankFromScore;
+app.locals.formatRelativeTime = formatRelativeTime;
+app.locals.MAX_PINNED_POSTS = MAX_PINNED_POSTS;
 
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -98,8 +111,46 @@ async function enterAsTestUser(req) {
     });
   }
   await seedDemoMapForUser(user._id);
+  await seedDemoSocial();
   req.session.travelerId = String(user._id);
   return user;
+}
+
+function saveImageFile(dir, file) {
+  const extMatch = path.extname(file.originalname || "").toLowerCase();
+  const safeExt = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"].includes(extMatch) ? extMatch : ".jpg";
+  const filename = `${crypto.randomUUID()}${safeExt}`;
+  fs.writeFileSync(path.join(dir, filename), file.buffer);
+  return filename;
+}
+
+function removeStoredPhoto(dir, filename) {
+  const name = String(filename || "");
+  if (!name || name.startsWith("demo-") || name.includes("..") || name.includes("/") || name.includes("\\")) return;
+  const full = path.join(dir, name);
+  if (fs.existsSync(full)) fs.unlinkSync(full);
+}
+
+function safeReturnTo(req, fallback = "/social") {
+  const raw = String(req.body.returnTo || "");
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return fallback;
+  if (raw.startsWith("/social") || raw.startsWith("/profile") || raw.startsWith("/u/") || raw.startsWith("/hub")) {
+    return raw;
+  }
+  return fallback;
+}
+
+function handleMulter(kind, redirectTo) {
+  const run = kind === "social" ? upload.fields([{ name: "photo", maxCount: 1 }, { name: "selfie", maxCount: 1 }]) : upload.single("photo");
+  return (req, res, next) => {
+    run(req, res, (err) => {
+      if (!err) return next();
+      const message =
+        err.code === "LIMIT_FILE_SIZE" ? "Photo must be 5MB or smaller." : err.message || "Could not upload that photo.";
+      flash(req, "error", message);
+      res.redirect(redirectTo);
+    });
+  };
 }
 
 async function finishMonumentVisit(req, res, match) {
@@ -178,10 +229,11 @@ app.get(
   requireTraveler,
   asyncHandler(async (req, res) => {
     const traveler = res.locals.traveler;
-    const [trips, board, total] = await Promise.all([
+    const [trips, board, total, moments] = await Promise.all([
       TravelLog.find({ user: traveler._id }).sort({ occurredAt: -1 }).limit(8).lean(),
       User.leaderboard(5),
       User.countDocuments(),
+      listSocialFeed(4),
     ]);
     res.render("hub", {
       page: "hub",
@@ -195,6 +247,7 @@ app.get(
         note: trip.notes,
       })),
       board: board.map(presentTraveler),
+      moments,
     });
   })
 );
@@ -413,9 +466,13 @@ app.get("/ranks", (_req, res) => {
 app.get(
   "/profile",
   requireTraveler,
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
     const others = (await User.find().sort({ displayName: 1, username: 1 }).lean()).map(presentTraveler);
-    res.render("profile", { page: "profile", title: "Profile", others });
+    const [pinned, myPosts] = await Promise.all([
+      listUserSocialPosts(req.userDoc._id, { pinnedOnly: true }),
+      listUserSocialPosts(req.userDoc._id),
+    ]);
+    res.render("profile", { page: "profile", title: "Profile", others, pinned, myPosts });
   })
 );
 
@@ -473,6 +530,125 @@ app.post(
   })
 );
 
+app.get(
+  "/social",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const mine = String(req.query.tab || "") === "mine";
+    const posts = mine ? await listUserSocialPosts(req.userDoc._id) : await listSocialFeed(60);
+    res.render("social", {
+      page: "social",
+      title: "Social",
+      posts,
+      mine,
+    });
+  })
+);
+
+app.post(
+  "/social",
+  requireTraveler,
+  handleMulter("social", "/social"),
+  asyncHandler(async (req, res) => {
+    const photo = req.files?.photo?.[0];
+    if (!photo) {
+      flash(req, "error", "Add a photo to share a moment.");
+      return res.redirect("/social");
+    }
+    try {
+      const photoPath = saveImageFile(SOCIAL_DIR, photo);
+      const selfie = req.files?.selfie?.[0];
+      const selfiePath = selfie ? saveImageFile(SOCIAL_DIR, selfie) : "";
+      await createSocialPost(req.userDoc._id, {
+        caption: req.body.caption,
+        photoPath,
+        selfiePath,
+      });
+      flash(req, "success", "Moment shared. The feed was already open — post whenever you want.");
+      return req.session.save(() => res.redirect("/social"));
+    } catch (err) {
+      flash(req, "error", err.message);
+      res.redirect("/social");
+    }
+  })
+);
+
+app.post(
+  "/social/:id/pin",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const dest = safeReturnTo(req);
+    try {
+      await pinSocialPost(req.userDoc._id, req.params.id);
+      flash(req, "success", "Pinned to your account.");
+    } catch (err) {
+      flash(req, "error", err.message);
+    }
+    res.redirect(dest);
+  })
+);
+
+app.post(
+  "/social/:id/unpin",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const dest = safeReturnTo(req);
+    try {
+      await unpinSocialPost(req.userDoc._id, req.params.id);
+      flash(req, "success", "Unpinned from your account.");
+    } catch (err) {
+      flash(req, "error", err.message);
+    }
+    res.redirect(dest);
+  })
+);
+
+app.post(
+  "/social/:id/delete",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const dest = safeReturnTo(req);
+    try {
+      const removed = await deleteSocialPost(req.userDoc._id, req.params.id);
+      removeStoredPhoto(SOCIAL_DIR, removed.photoPath);
+      removeStoredPhoto(SOCIAL_DIR, removed.selfiePath);
+      flash(req, "success", "Moment removed.");
+    } catch (err) {
+      flash(req, "error", err.message);
+    }
+    res.redirect(dest);
+  })
+);
+
+app.get(
+  "/u/:handle",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    const handle = String(req.params.handle || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+    const user = await User.findOne({ username: handle });
+    if (!user) {
+      return res.status(404).render("404", { page: "", title: "Not found" });
+    }
+    const [pinned, posts] = await Promise.all([
+      listUserSocialPosts(user._id, { pinnedOnly: true }),
+      listUserSocialPosts(user._id),
+    ]);
+    const isSelf = String(user._id) === String(req.userDoc._id);
+    res.render("traveler", {
+      page: isSelf ? "profile" : "",
+      title: user.displayName || user.username,
+      profile: presentTraveler(user),
+      rank: rankFromScore(user.score),
+      pinned,
+      posts,
+      isSelf,
+    });
+  })
+);
+
 app.get("/api/health", (_req, res) => {
   const { readyState, name, host } = mongoose.connection;
   res.json({ ok: readyState === 1, database: name || null, host: host || null, readyState });
@@ -505,6 +681,7 @@ async function start() {
     homeBase: "Demo",
   }));
   await seedDemoMapForUser(demo._id);
+  await seedDemoSocial();
   const server = app.listen(PORT, "127.0.0.1", () => {
     console.log(`MongoDB connected: ${mongoose.connection.host}/${mongoose.connection.name}`);
     console.log(`App listening on http://127.0.0.1:${PORT}`);

@@ -126,6 +126,29 @@
 
   <section class="card-panel">
     <div class="section-head tight">
+      <h2>Latest moments</h2>
+      <a href="/social">Open social</a>
+    </div>
+    <% if (!moments.length) { %>
+      <div class="empty">
+        <i class="bi bi-camera"></i>
+        <p>The feed is open. Peek at what people are sharing, then post a photo whenever you want.</p>
+        <a class="btn btn-wp sm" href="/social">Browse social</a>
+      </div>
+    <% } else { %>
+      <div class="moment-strip">
+        <% for (const post of moments) { %>
+          <a class="moment-thumb" href="/social">
+            <img src="<%= post.photoUrl %>" alt="<%= post.caption || 'Moment' %>" />
+            <% if (post.author) { %><span>@<%= post.author.handle %></span><% } %>
+          </a>
+        <% } %>
+      </div>
+    <% } %>
+  </section>
+
+  <section class="card-panel">
+    <div class="section-head tight">
         <h2>Leaderboard</h2>
       <a href="/leaderboard">Full leaderboard</a>
     </div>
@@ -138,12 +161,10 @@
           <span class="avatar xs" style="--hue: <%= row.avatarHue %>">
             <%= row.displayName.slice(0,1) %>
           </span>
-          <span class="who">
-            <strong>
-              <%= row.displayName %>
-            </strong>
-            <small>@<%= row.handle %></small>
-          </span>
+        <span class="who">
+          <strong><a href="/u/<%= row.handle %>"><%= row.displayName %></a></strong>
+          <small>@<%= row.handle %></small>
+        </span>
           <span class="pts">
             <%= formatScore(row.score) %>
           </span>

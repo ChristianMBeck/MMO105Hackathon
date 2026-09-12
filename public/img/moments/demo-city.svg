@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" role="img" aria-label="City at night">
+  <defs>
+    <linearGradient id="citySky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#14182a"/>
+      <stop offset="100%" stop-color="#2a1540"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#citySky)"/>
+  <circle cx="80" cy="90" r="3" fill="#fff"/>
+  <circle cx="140" cy="50" r="2" fill="#fff"/>
+  <circle cx="300" cy="70" r="2.5" fill="#fff"/>
+  <circle cx="430" cy="40" r="2" fill="#fff"/>
+  <circle cx="540" cy="110" r="3" fill="#fff"/>
+  <rect x="40" y="300" width="90" height="500" fill="#1c2238"/>
+  <rect x="150" y="220" width="110" height="580" fill="#222b46"/>
+  <rect x="280" y="280" width="80" height="520" fill="#1a2033"/>
+  <rect x="380" y="180" width="130" height="620" fill="#262f4c"/>
+  <rect x="520" y="340" width="70" height="460" fill="#1c2238"/>
+  <g fill="#ffd36a">
+    <rect x="58" y="330" width="10" height="14"/><rect x="78" y="330" width="10" height="14"/>
+    <rect x="58" y="360" width="10" height="14"/><rect x="98" y="390" width="10" height="14"/>
+    <rect x="168" y="250" width="12" height="16"/><rect x="196" y="280" width="12" height="16"/>
+    <rect x="224" y="250" width="12" height="16"/><rect x="168" y="340" width="12" height="16"/>
+    <rect x="298" y="310" width="10" height="14"/><rect x="322" y="350" width="10" height="14"/>
+    <rect x="400" y="210" width="14" height="18"/><rect x="430" y="250" width="14" height="18"/>
+    <rect x="460" y="210" width="14" height="18"/><rect x="400" y="310" width="14" height="18"/>
+    <rect x="538" y="370" width="10" height="14"/><rect x="558" y="410" width="10" height="14"/>
+  </g>
+  <path d="M0 620 C140 580 260 640 600 600 V800 H0 Z" fill="#121018"/>
+  <path d="M0 670 C220 640 360 700 600 650" fill="none" stroke="#7c5cff" stroke-width="8"/>
+  <text x="300" y="760" text-anchor="middle" fill="#f0e9ff" font-family="Georgia, serif" font-size="28">bridge lights</text>
+</svg>

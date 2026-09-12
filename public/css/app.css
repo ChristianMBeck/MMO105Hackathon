@@ -715,6 +715,189 @@ a:hover { color: #7af0e3; }
   border: 1px solid var(--line);
   box-shadow: none;
 }
+.btn-ghost.danger { color: var(--danger); }
+
+.social-feed {
+  max-width: 440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+.social-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+.social-tabs a {
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+}
+.social-tabs a.active {
+  color: #04231f;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.moment-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+}
+.moment-author {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+.moment-who { color: var(--text); min-width: 0; flex: 1; }
+.moment-who small { display: block; color: var(--muted); }
+.moment-pin-flag { color: var(--warn); }
+.moment-frame {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 1.15rem;
+  overflow: hidden;
+  background: #0c1018;
+}
+.moment-frame.has-inset { cursor: pointer; }
+.moment-main {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.moment-inset {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  width: 32%;
+  aspect-ratio: 3 / 4;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  border: 3px solid #fff;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  background: #0c1018;
+}
+.moment-inset img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.moment-caption {
+  margin: 0.8rem 0 0;
+  font-size: 0.95rem;
+}
+.moment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+.moment-composer { max-width: 440px; margin-left: auto; margin-right: auto; }
+.moment-compose-frame {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 1.15rem;
+  overflow: hidden;
+  background: #0c1018;
+  margin-bottom: 1rem;
+}
+.moment-pick {
+  display: block;
+  cursor: pointer;
+  color: var(--muted);
+}
+.moment-pick input { display: none; }
+.moment-pick-main {
+  position: absolute;
+  inset: 0;
+}
+.moment-pick-main img,
+.moment-pick-inset img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.moment-pick-copy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  text-align: center;
+  pointer-events: none;
+}
+.moment-pick-copy i { font-size: 1.6rem; color: var(--accent); }
+.moment-pick-copy strong { color: var(--text); }
+.moment-pick.has-photo .moment-pick-copy { display: none; }
+.moment-pick-inset {
+  position: absolute;
+  top: 0.7rem;
+  left: 0.7rem;
+  width: 32%;
+  aspect-ratio: 3 / 4;
+  border-radius: 0.85rem;
+  overflow: hidden;
+  border: 3px solid #fff;
+  background: #121722;
+  z-index: 2;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+.moment-pick-inset .moment-pick-copy { font-size: 0.72rem; padding: 0.3rem; }
+.moment-pick-inset .moment-pick-copy i { font-size: 1rem; }
+.pin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.2rem;
+}
+.pin-grid .moment-card { margin: 0; }
+.moment-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.7rem;
+}
+.moment-thumb {
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.moment-thumb img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 0.9rem;
+  background: #0c1018;
+}
+.moment-thumb span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.traveler-head { align-items: center; }
+.traveler-head .avatar { margin-right: 0.2rem; }
+
+@media (max-width: 768px) {
+  .moment-strip { grid-template-columns: repeat(2, 1fr); }
+  .pin-grid { grid-template-columns: 1fr; }
+}
+
+.who a { color: var(--text); }
+.who a:hover { color: var(--accent); }
+.podium a { color: var(--text); }
+.podium a:hover { color: var(--accent); }
 
 @media (max-width: 991px) {
   .map-body .app-main { min-height: calc(100vh - 72px); }

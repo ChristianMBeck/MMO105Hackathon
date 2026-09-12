@@ -1,0 +1,55 @@
+<% const returnTo = typeof returnTo !== "undefined" ? returnTo : "/social"; %>
+<% const mine = traveler && post.author && String(traveler._id) === String(post.author._id); %>
+<article class="moment-card<%= post.pinned ? ' is-pinned' : '' %>">
+  <header class="moment-author">
+    <% if (post.author) { %>
+      <a class="avatar sm" href="/u/<%= post.author.handle %>" style="--hue: <%= post.author.avatarHue %>"><%= post.author.initials %></a>
+      <a class="moment-who" href="/u/<%= post.author.handle %>">
+        <strong><%= post.author.displayName %></strong>
+        <small>@<%= post.author.handle %> · <%= post.relativeTime %></small>
+      </a>
+    <% } else { %>
+      <span class="avatar sm" style="--hue: 200">?</span>
+      <span class="moment-who">
+        <strong>Traveler</strong>
+        <small><%= post.relativeTime %></small>
+      </span>
+    <% } %>
+    <% if (post.pinned) { %>
+      <span class="moment-pin-flag" title="Pinned to account"><i class="bi bi-pin-angle-fill"></i></span>
+    <% } %>
+  </header>
+
+  <div class="moment-frame<%= post.selfieUrl ? ' has-inset' : '' %>" <% if (post.selfieUrl) { %>data-moment-swap title="Tap to swap photos"<% } %>>
+    <img class="moment-main" src="<%= post.photoUrl %>" alt="<%= post.caption || 'Travel moment' %>" />
+    <% if (post.selfieUrl) { %>
+      <span class="moment-inset" aria-hidden="true">
+        <img src="<%= post.selfieUrl %>" alt="" />
+      </span>
+    <% } %>
+  </div>
+
+  <% if (post.caption) { %>
+    <p class="moment-caption"><%= post.caption %></p>
+  <% } %>
+
+  <% if (mine) { %>
+    <div class="moment-actions">
+      <% if (post.pinned) { %>
+        <form method="post" action="/social/<%= post.id %>/unpin">
+          <input type="hidden" name="returnTo" value="<%= returnTo %>" />
+          <button class="btn btn-ghost sm" type="submit"><i class="bi bi-pin-angle-fill"></i> Unpin</button>
+        </form>
+      <% } else { %>
+        <form method="post" action="/social/<%= post.id %>/pin">
+          <input type="hidden" name="returnTo" value="<%= returnTo %>" />
+          <button class="btn btn-ghost sm" type="submit"><i class="bi bi-pin-angle"></i> Pin to account</button>
+        </form>
+      <% } %>
+      <form method="post" action="/social/<%= post.id %>/delete" onsubmit="return confirm('Remove this moment?');">
+        <input type="hidden" name="returnTo" value="<%= returnTo %>" />
+        <button class="btn btn-ghost sm danger" type="submit"><i class="bi bi-trash"></i> Remove</button>
+      </form>
+    </div>
+  <% } %>
+</article>

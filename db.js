@@ -173,6 +173,24 @@ const placeVisitSchema = new Schema(
 placeVisitSchema.index({ user: 1, kind: 1, name: 1 }, { unique: true });
 placeVisitSchema.index({ user: 1, kind: 1 });
 
+const MAX_PINNED_POSTS = 6;
+
+const socialPostSchema = new Schema(
+  {
+    user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    caption: { type: String, trim: true, default: "", maxlength: 280 },
+    photoPath: { type: String, required: true, trim: true },
+    selfiePath: { type: String, default: "", trim: true },
+    pinned: { type: Boolean, default: false, index: true },
+    pinnedAt: { type: Date, default: null },
+  },
+  { timestamps: true }
+);
+
+socialPostSchema.index({ createdAt: -1 });
+socialPostSchema.index({ user: 1, createdAt: -1 });
+socialPostSchema.index({ user: 1, pinned: 1, pinnedAt: -1 });
+
 const MODE_TO_STAT = {
   car: "milesCar",
   plane: "milesFlown",
@@ -667,6 +685,196 @@ async function seedDemoMapForUser(userId) {
   }
 }
 
+function socialPhotoUrl(filename) {
+  const name = String(filename || "").trim();
+  if (!name) return "";
+  if (/^https?:\/\//i.test(name) || name.startsWith("/")) return name;
+  if (name.startsWith("demo-")) return `/img/moments/${name}`;
+  return `/social-photos/${name}`;
+}
+
+function formatRelativeTime(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const delta = Date.now() - date.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (delta < minute) return "just now";
+  if (delta < hour) return `${Math.floor(delta / minute)}m ago`;
+  if (delta < day) return `${Math.floor(delta / hour)}h ago`;
+  if (delta < 7 * day) return `${Math.floor(delta / day)}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function presentSocialPost(post, author) {
+  if (!post) return null;
+  const doc = typeof post.toObject === "function" ? post.toObject() : { ...post };
+  return {
+    ...doc,
+    id: String(doc._id),
+    caption: doc.caption || "",
+    photoUrl: socialPhotoUrl(doc.photoPath),
+    selfieUrl: socialPhotoUrl(doc.selfiePath),
+    pinned: Boolean(doc.pinned),
+    author: author ? presentTraveler(author) : null,
+    relativeTime: formatRelativeTime(doc.createdAt),
+  };
+}
+
+async function hydrateSocialPosts(posts) {
+  const ids = [...new Set(posts.map((post) => String(post.user)))];
+  const users = await mongoose.model("User").find({ _id: { $in: ids } }).lean();
+  const byId = new Map(users.map((user) => [String(user._id), user]));
+  return posts.map((post) => presentSocialPost(post, byId.get(String(post.user))));
+}
+
+async function createSocialPost(userId, payload) {
+  const caption = String(payload.caption || "").trim().slice(0, 280);
+  const photoPath = String(payload.photoPath || "").trim();
+  if (!photoPath) throw new Error("Add a photo to share a moment.");
+  const selfiePath = String(payload.selfiePath || "").trim();
+  const createdAt = payload.createdAt ? new Date(payload.createdAt) : new Date();
+  const doc = await mongoose.model("SocialPost").create({
+    user: userId,
+    caption,
+    photoPath,
+    selfiePath,
+    createdAt,
+    updatedAt: createdAt,
+  });
+  return presentSocialPost(doc.toObject());
+}
+
+async function listSocialFeed(limit = 40) {
+  const posts = await mongoose
+    .model("SocialPost")
+    .find()
+    .sort({ createdAt: -1 })
+    .limit(Math.max(1, Number(limit) || 40))
+    .lean();
+  return hydrateSocialPosts(posts);
+}
+
+async function listUserSocialPosts(userId, { pinnedOnly = false } = {}) {
+  const filter = { user: userId };
+  if (pinnedOnly) filter.pinned = true;
+  const sort = pinnedOnly ? { pinnedAt: -1, createdAt: -1 } : { createdAt: -1 };
+  const posts = await mongoose.model("SocialPost").find(filter).sort(sort).lean();
+  return hydrateSocialPosts(posts);
+}
+
+async function getSocialPost(postId) {
+  const post = await mongoose.model("SocialPost").findById(postId).lean();
+  if (!post) return null;
+  const author = await mongoose.model("User").findById(post.user).lean();
+  return presentSocialPost(post, author);
+}
+
+async function pinSocialPost(userId, postId) {
+  const SocialPost = mongoose.model("SocialPost");
+  const post = await SocialPost.findById(postId);
+  if (!post) throw new Error("That moment is gone.");
+  if (String(post.user) !== String(userId)) throw new Error("You can only pin your own moments.");
+  if (post.pinned) return presentSocialPost(post.toObject());
+  const pinnedCount = await SocialPost.countDocuments({ user: userId, pinned: true });
+  if (pinnedCount >= MAX_PINNED_POSTS) {
+    throw new Error(`You can pin up to ${MAX_PINNED_POSTS} favorite moments on your account.`);
+  }
+  post.pinned = true;
+  post.pinnedAt = new Date();
+  await post.save();
+  return presentSocialPost(post.toObject());
+}
+
+async function unpinSocialPost(userId, postId) {
+  const post = await mongoose.model("SocialPost").findById(postId);
+  if (!post) throw new Error("That moment is gone.");
+  if (String(post.user) !== String(userId)) throw new Error("You can only unpin your own moments.");
+  post.pinned = false;
+  post.pinnedAt = null;
+  await post.save();
+  return presentSocialPost(post.toObject());
+}
+
+async function deleteSocialPost(userId, postId) {
+  const post = await mongoose.model("SocialPost").findOne({ _id: postId, user: userId });
+  if (!post) throw new Error("You can only remove your own moments.");
+  const snapshot = post.toObject();
+  await post.deleteOne();
+  return snapshot;
+}
+
+const DEMO_MOMENT_SPECS = [
+  {
+    handle: "jordan",
+    displayName: "Jordan Lee",
+    homeBase: "Demo",
+    caption: "Coffee before the train. No timer, just the morning.",
+    photoPath: "demo-cafe.svg",
+    selfiePath: "demo-selfie-jordan.svg",
+    hoursAgo: 2,
+    pin: true,
+  },
+  {
+    handle: "alex",
+    displayName: "Alex Rivera",
+    homeBase: "Brooklyn",
+    caption: "Bridge lights on the way home.",
+    photoPath: "demo-city.svg",
+    selfiePath: "demo-selfie-alex.svg",
+    hoursAgo: 5,
+    pin: true,
+  },
+  {
+    handle: "jordan",
+    displayName: "Jordan Lee",
+    homeBase: "Demo",
+    caption: "Lookout before the descent.",
+    photoPath: "demo-ridge.svg",
+    selfiePath: "demo-selfie-jordan.svg",
+    hoursAgo: 20,
+    pin: true,
+  },
+  {
+    handle: "sam",
+    displayName: "Sam Patel",
+    homeBase: "Boston",
+    caption: "Harbor swim, first of the trip.",
+    photoPath: "demo-harbor.svg",
+    selfiePath: "demo-selfie-sam.svg",
+    hoursAgo: 28,
+    pin: false,
+  },
+];
+
+async function seedDemoSocial() {
+  for (const spec of DEMO_MOMENT_SPECS) {
+    const exists = await mongoose.model("User").exists({ username: spec.handle });
+    if (!exists) {
+      await createTraveler({
+        displayName: spec.displayName,
+        handle: spec.handle,
+        homeBase: spec.homeBase,
+      });
+    }
+  }
+
+  if (await mongoose.model("SocialPost").countDocuments()) return;
+
+  for (const spec of DEMO_MOMENT_SPECS) {
+    const user = await mongoose.model("User").findOne({ username: spec.handle });
+    if (!user) continue;
+    const post = await createSocialPost(user._id, {
+      caption: spec.caption,
+      photoPath: spec.photoPath,
+      selfiePath: spec.selfiePath,
+      createdAt: new Date(Date.now() - spec.hoursAgo * 60 * 60 * 1000),
+    });
+    if (spec.pin) await pinSocialPost(user._id, post.id);
+  }
+}
+
 async function createTraveler({ displayName, handle, homeBase }) {
   const UserModel = mongoose.model("User");
   let username = slugifyHandle(handle || displayName);
@@ -695,6 +903,7 @@ async function connect(uri = process.env.MONGODB_URI) {
 const User = mongoose.models.User || mongoose.model("User", userSchema);
 const TravelLog = mongoose.models.TravelLog || mongoose.model("TravelLog", travelLogSchema);
 const PlaceVisit = mongoose.models.PlaceVisit || mongoose.model("PlaceVisit", placeVisitSchema);
+const SocialPost = mongoose.models.SocialPost || mongoose.model("SocialPost", socialPostSchema);
 
 module.exports = {
   mongoose,
@@ -702,12 +911,14 @@ module.exports = {
   User,
   TravelLog,
   PlaceVisit,
+  SocialPost,
   SCORE_WEIGHTS,
   TRAVEL_MODES,
   PLACE_KINDS,
   STAT_META,
   WEIGHTS,
   LADDER,
+  MAX_PINNED_POSTS,
   applyTravelLog,
   logTripFromForm,
   recordTripFromForm,
@@ -717,6 +928,17 @@ module.exports = {
   setUserStats,
   createTraveler,
   seedDemoMapForUser,
+  seedDemoSocial,
+  createSocialPost,
+  listSocialFeed,
+  listUserSocialPosts,
+  getSocialPost,
+  pinSocialPost,
+  unpinSocialPost,
+  deleteSocialPost,
+  presentSocialPost,
+  socialPhotoUrl,
+  formatRelativeTime,
   presentTraveler,
   rankFromScore,
   formatScore,

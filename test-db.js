@@ -4,8 +4,17 @@ const {
   User,
   TravelLog,
   PlaceVisit,
+  SocialPost,
   SCORE_WEIGHTS,
+  MAX_PINNED_POSTS,
   applyTravelLog,
+  createSocialPost,
+  listSocialFeed,
+  listUserSocialPosts,
+  pinSocialPost,
+  unpinSocialPost,
+  deleteSocialPost,
+  seedDemoSocial,
 } = require("./db");
 
 const TEST_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/travel-log-test";
@@ -155,6 +164,8 @@ async function run() {
   assert(mapCountries >= 8, `jordan should have several countries for the map, got ${mapCountries}`);
   assert(mapPins >= 8, `jordan should have monument pins with coordinates, got ${mapPins}`);
 
+  await testSocial(alex, jordan, sam);
+
   console.log("Seeded users:");
   const boardAfterMap = await User.leaderboard();
   for (const row of boardAfterMap) {
@@ -163,6 +174,77 @@ async function run() {
     );
   }
   console.log("All database tests passed.");
+}
+
+async function testSocial(alex, jordan, sam) {
+  assert((await SocialPost.countDocuments()) === 0, "social starts empty");
+
+  const alexPost = await createSocialPost(alex._id, {
+    caption: "Bridge walk",
+    photoPath: "demo-city.svg",
+    selfiePath: "demo-selfie-alex.svg",
+  });
+  assert(alexPost.photoUrl === "/img/moments/demo-city.svg", "demo photo url");
+  assert(alexPost.selfieUrl.includes("demo-selfie-alex"), "demo selfie url");
+  assert(alexPost.pinned === false, "new posts are not pinned");
+
+  const feedBeforeJordanPosts = await listSocialFeed();
+  assert(feedBeforeJordanPosts.length === 1, "feed is visible without the viewer posting");
+  assert(feedBeforeJordanPosts[0].author.handle === "alex", "feed includes someone else's moment");
+
+  const jordanFirst = await createSocialPost(jordan._id, {
+    caption: "Anytime post",
+    photoPath: "demo-cafe.svg",
+    selfiePath: "demo-selfie-jordan.svg",
+  });
+  const jordanSecond = await createSocialPost(jordan._id, {
+    caption: "Second post the same day",
+    photoPath: "demo-ridge.svg",
+  });
+  assert((await SocialPost.countDocuments({ user: jordan._id })) === 2, "multiple posts per day are allowed");
+
+  await pinSocialPost(jordan._id, jordanFirst.id);
+  await pinSocialPost(jordan._id, jordanSecond.id);
+  const pinned = await listUserSocialPosts(jordan._id, { pinnedOnly: true });
+  assert(pinned.length === 2, "jordan pinned two favorites");
+  assert(pinned.every((post) => post.pinned), "pinned query returns pinned posts");
+
+  await unpinSocialPost(jordan._id, jordanSecond.id);
+  assert((await listUserSocialPosts(jordan._id, { pinnedOnly: true })).length === 1, "unpin removes from account");
+
+  try {
+    await pinSocialPost(alex._id, jordanFirst.id);
+    throw new Error("pinning someone else's moment should fail");
+  } catch (err) {
+    assert(/own moments/.test(err.message), "cannot pin another traveler's moment");
+  }
+
+  for (let i = 0; i < MAX_PINNED_POSTS; i += 1) {
+    const extra = await createSocialPost(sam._id, { caption: `Pin ${i}`, photoPath: "demo-harbor.svg" });
+    await pinSocialPost(sam._id, extra.id);
+  }
+  const overflow = await createSocialPost(sam._id, { caption: "Too many pins", photoPath: "demo-harbor.svg" });
+  try {
+    await pinSocialPost(sam._id, overflow.id);
+    throw new Error("pin cap should reject extra favorites");
+  } catch (err) {
+    assert(err.message.includes(String(MAX_PINNED_POSTS)), "pin cap message names the limit");
+  }
+
+  const removed = await deleteSocialPost(jordan._id, jordanSecond.id);
+  assert(removed.photoPath === "demo-ridge.svg", "delete returns the removed moment");
+  assert((await SocialPost.findById(jordanSecond.id)) === null, "deleted moment is gone");
+
+  try {
+    await deleteSocialPost(jordan._id, alexPost.id);
+    throw new Error("deleting someone else's moment should fail");
+  } catch (err) {
+    assert(/own moments/.test(err.message), "cannot delete another traveler's moment");
+  }
+
+  const beforeSeed = await SocialPost.countDocuments();
+  await seedDemoSocial();
+  assert((await SocialPost.countDocuments()) === beforeSeed, "demo social seed does not duplicate existing moments");
 }
 
 async function seedMapForJordan(jordan) {
