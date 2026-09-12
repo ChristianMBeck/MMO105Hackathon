@@ -386,8 +386,10 @@ async function recordTripFromForm(userId, body) {
   const startLocation = String(body.from || "").trim();
   const endLocation = String(body.to || "").trim();
 
-  if (!miles && !startLocation && !endLocation) {
-    throw new Error("Add a distance or at least a start/end location.");
+  const movingSeconds = hours * 3600 + minutes * 60 + seconds;
+
+  if (!miles && !startLocation && !endLocation && !movingSeconds) {
+    throw new Error("Start the timer, or add a distance / location, before saving.");
   }
 
   let occurredAt = body.date ? new Date(`${body.date}T${body.startTime || "12:00"}`) : new Date();
@@ -402,7 +404,7 @@ async function recordTripFromForm(userId, body) {
     sport,
     distanceMiles: miles,
     elevationFt: Math.max(0, Number(body.elevation) || 0),
-    movingSeconds: hours * 3600 + minutes * 60 + seconds,
+    movingSeconds,
     startLocation,
     endLocation,
     privacy: ["everyone", "followers", "onlyme"].includes(body.privacy) ? body.privacy : "everyone",

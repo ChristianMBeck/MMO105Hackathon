@@ -57,70 +57,19 @@
       </div>
     </section>
 
-    <section class="metrics-row">
-      <label class="metric-card">
-        <span>Distance</span>
-        <div class="metric-input">
-          <input class="form-control" type="number" min="0" step="0.1" name="distance" placeholder="0.0" />
-          <small>mi</small>
-        </div>
-      </label>
-      <fieldset class="metric-card">
-        <span>Moving time</span>
-        <div class="time-triple">
-          <input class="form-control" type="number" min="0" max="99" value="0" name="hours" aria-label="Hours" />
-          <em>h</em>
-          <input class="form-control" type="number" min="0" max="59" value="0" name="minutes" aria-label="Minutes" />
-          <em>m</em>
-          <input class="form-control" type="number" min="0" max="59" value="0" name="seconds" aria-label="Seconds" />
-          <em>s</em>
-        </div>
-      </fieldset>
-      <label class="metric-card">
-        <span>Elevation</span>
-        <div class="metric-input">
-          <input class="form-control" type="number" min="0" step="1" name="elevation" placeholder="0" />
-          <small>ft</small>
-        </div>
-      </label>
-    </section>
-
-    <section class="card-panel form-panel">
-      <div class="row g-3">
-        <div class="col-12">
-          <label class="form-label" for="record-title">Title</label>
-          <input class="form-control" id="record-title" name="title" maxlength="80" placeholder="Afternoon drive" />
-        </div>
-        <div class="col-12">
-          <label class="form-label" for="record-desc">Description</label>
-          <textarea class="form-control" id="record-desc" name="description" rows="3"
-            placeholder="How did it feel? Who were you with?"></textarea>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label" for="record-date">Date</label>
-          <input class="form-control" id="record-date" name="date" type="date" value="<%= today %>" />
-        </div>
-        <div class="col-md-6">
-          <label class="form-label" for="record-time">Start time</label>
-          <input class="form-control" id="record-time" name="startTime" type="time" value="<%= time %>" />
-        </div>
-        <div class="col-md-6">
-          <label class="form-label" for="record-from">From</label>
-          <div class="input-affix">
-            <i class="bi bi-circle"></i>
-            <input class="form-control" id="record-from" name="from" placeholder="Start location" />
-          </div>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label" for="record-to">To</label>
-          <div class="input-affix">
-            <i class="bi bi-geo-alt"></i>
-            <input class="form-control" id="record-to" name="to" placeholder="End location" />
-          </div>
-        </div>
+    <section class="card-panel timer-panel">
+      <p class="eyebrow">Moving time</p>
+      <div class="live-timer" id="live-timer" aria-live="polite">00:00:00</div>
+      <div class="timer-actions">
+        <button class="btn btn-wp" type="button" id="timer-start">Start</button>
+        <button class="btn btn-ghost" type="button" id="timer-stop" disabled>Stop</button>
       </div>
+      <input type="hidden" name="hours" id="timer-hours" value="0" />
+      <input type="hidden" name="minutes" id="timer-minutes" value="0" />
+      <input type="hidden" name="seconds" id="timer-seconds" value="0" />
+      <input type="hidden" name="date" value="<%= typeof today !== 'undefined' ? today : '' %>" />
+      <input type="hidden" name="startTime" id="timer-start-time" value="<%= typeof time !== 'undefined' ? time : '' %>" />
     </section>
-
 
 
 
