@@ -717,12 +717,23 @@ a:hover { color: #7af0e3; }
 }
 .btn-ghost.danger { color: var(--danger); }
 
-.social-feed {
+.social-column {
   max-width: 440px;
   margin: 0 auto;
+}
+.social-column .section-head {
+  align-items: center;
+}
+.social-feed {
   display: flex;
   flex-direction: column;
   gap: 1.4rem;
+  max-width: 440px;
+  margin: 0 auto;
+}
+.social-column .social-feed,
+.social-column .moment-composer {
+  max-width: none;
 }
 .social-tabs {
   display: flex;
@@ -797,7 +808,7 @@ a:hover { color: #7af0e3; }
   gap: 0.45rem;
   margin-top: 0.85rem;
 }
-.moment-composer { max-width: 440px; margin-left: auto; margin-right: auto; }
+.moment-composer { max-width: 440px; }
 .moment-compose-frame {
   position: relative;
   aspect-ratio: 3 / 4;

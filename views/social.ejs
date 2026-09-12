@@ -8,54 +8,56 @@
   </div>
 </header>
 
-<form class="card-panel moment-composer" method="post" action="/social" enctype="multipart/form-data">
-  <h2 class="form-section" style="margin-top:0">New moment</h2>
-  <div class="moment-compose-frame" id="compose-frame">
-    <label class="moment-pick moment-pick-main">
-      <input id="moment-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" required />
-      <img id="moment-photo-preview" alt="Main photo preview" hidden />
-      <span class="moment-pick-copy">
-        <i class="bi bi-camera"></i>
-        <strong>The view</strong>
-        <small>Required photo</small>
-      </span>
-    </label>
-    <label class="moment-pick moment-pick-inset">
-      <input id="moment-selfie" type="file" name="selfie" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" />
-      <img id="moment-selfie-preview" alt="Selfie preview" hidden />
-      <span class="moment-pick-copy">
-        <i class="bi bi-person"></i>
-        <strong>You</strong>
-        <small>Optional</small>
-      </span>
-    </label>
-  </div>
-  <label class="form-label" for="caption">Caption</label>
-  <textarea class="form-control" id="caption" name="caption" rows="2" maxlength="280" placeholder="What's happening where you are?"></textarea>
-  <div class="form-actions">
-    <button class="btn btn-wp" type="submit"><i class="bi bi-send"></i> Share moment</button>
-  </div>
-</form>
+<div class="social-column">
+  <form class="card-panel moment-composer" method="post" action="/social" enctype="multipart/form-data">
+    <h2 class="form-section" style="margin-top:0">New moment</h2>
+    <div class="moment-compose-frame" id="compose-frame">
+      <label class="moment-pick moment-pick-main">
+        <input id="moment-photo" type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" required />
+        <img id="moment-photo-preview" alt="Main photo preview" hidden />
+        <span class="moment-pick-copy">
+          <i class="bi bi-camera"></i>
+          <strong>The view</strong>
+          <small>Required photo</small>
+        </span>
+      </label>
+      <label class="moment-pick moment-pick-inset">
+        <input id="moment-selfie" type="file" name="selfie" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" />
+        <img id="moment-selfie-preview" alt="Selfie preview" hidden />
+        <span class="moment-pick-copy">
+          <i class="bi bi-person"></i>
+          <strong>You</strong>
+          <small>Optional</small>
+        </span>
+      </label>
+    </div>
+    <label class="form-label" for="caption">Caption</label>
+    <textarea class="form-control" id="caption" name="caption" rows="2" maxlength="280" placeholder="What's happening where you are?"></textarea>
+    <div class="form-actions">
+      <button class="btn btn-wp" type="submit"><i class="bi bi-send"></i> Share moment</button>
+    </div>
+  </form>
 
-<div class="section-head">
-  <h2><%= mine ? "Your moments" : "Everyone" %></h2>
-  <div class="social-tabs">
-    <a class="<%= !mine ? 'active' : '' %>" href="/social">Feed</a>
-    <a class="<%= mine ? 'active' : '' %>" href="/social?tab=mine">Yours</a>
+  <div class="section-head">
+    <h2><%= mine ? "Your moments" : "Everyone" %></h2>
+    <div class="social-tabs">
+      <a class="<%= !mine ? 'active' : '' %>" href="/social">Feed</a>
+      <a class="<%= mine ? 'active' : '' %>" href="/social?tab=mine">Yours</a>
+    </div>
   </div>
+
+  <% if (!posts.length) { %>
+    <div class="empty card-panel">
+      <i class="bi bi-camera"></i>
+      <p><%= mine ? "You have not shared a moment yet. Post one anytime — the rest of the feed is still open." : "No moments yet. You can still look around, then share whenever you want." %></p>
+    </div>
+  <% } else { %>
+    <div class="social-feed">
+      <% for (const post of posts) { %>
+        <%- include("partials/moment-card", { post, returnTo: mine ? "/social?tab=mine" : "/social" }) %>
+      <% } %>
+    </div>
+  <% } %>
 </div>
-
-<% if (!posts.length) { %>
-  <div class="empty card-panel">
-    <i class="bi bi-camera"></i>
-    <p><%= mine ? "You have not shared a moment yet. Post one anytime — the rest of the feed is still open." : "No moments yet. You can still look around, then share whenever you want." %></p>
-  </div>
-<% } else { %>
-  <div class="social-feed">
-    <% for (const post of posts) { %>
-      <%- include("partials/moment-card", { post, returnTo: mine ? "/social?tab=mine" : "/social" }) %>
-    <% } %>
-  </div>
-<% } %>
 
 <%- include("partials/bottom") %>
