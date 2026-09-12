@@ -1,4 +1,4 @@
-This app is going to be a travel log. The style is going to be like the fitness app liftoff, except for travel and not for fitness. You can input different stats (see Stats below) that will increase your score. There is a ranking and global leaderboard system, and a central hub where you can see all of your stats, scores, and rankings. 
+This is going to be a website for a travel log. The style is going to be like the fitness app liftoff, except for travel and not for fitness. You can input different stats (see Stats below) that will increase your score. There is a ranking and global leaderboard system, and a central hub where you can see all of your stats, scores, and rankings. 
 
 
 Stats: 
@@ -12,3 +12,14 @@ Stats:
 	Miles on Bike 
 	Miles on foot
 	
+
+Tasks:
+ 
+
+Database/Datastructure : mongoDB
+
+App  js, express.js
+
+UI: HTML, ejs, css, bootstrap, express.js,
+
+
