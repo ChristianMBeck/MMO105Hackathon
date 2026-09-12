@@ -158,6 +158,12 @@ const placeVisitSchema = new Schema(
     name: { type: String, required: true, trim: true },
     firstLoggedAt: { type: Date, default: Date.now },
     travelLog: { type: Schema.Types.ObjectId, ref: "TravelLog" },
+    famousId: { type: String, default: "", trim: true },
+    country: { type: String, default: "", trim: true },
+    lat: { type: Number, default: null },
+    lon: { type: Number, default: null },
+    distanceMeters: { type: Number, default: null, min: 0 },
+    photoPath: { type: String, default: "", trim: true },
   },
   { timestamps: true }
 );
@@ -407,6 +413,49 @@ async function recordTripFromForm(userId, body) {
   return result.scoreAwarded;
 }
 
+async function recordMonumentVisit(userId, payload) {
+  const PlaceVisit = mongoose.model("PlaceVisit");
+  const UserModel = mongoose.model("User");
+  const photoFields = {
+    famousId: payload.famousId || "",
+    country: payload.country || "",
+    lat: payload.lat,
+    lon: payload.lon,
+    distanceMeters: payload.distanceMeters,
+    photoPath: payload.photoPath || "",
+  };
+
+  try {
+    const visit = await PlaceVisit.create({
+      user: userId,
+      kind: "monument",
+      name: payload.name,
+      firstLoggedAt: new Date(),
+      ...photoFields,
+    });
+    await UserModel.updateOne(
+      { _id: userId },
+      { $inc: { score: SCORE_WEIGHTS.firstMonument, "stats.monumentsVisited": 1 } }
+    );
+    await UserModel.recomputeRanks();
+    return { visit: visit.toObject(), newVisit: true };
+  } catch (err) {
+    if (err && err.code === 11000) {
+      const visit = await PlaceVisit.findOneAndUpdate(
+        { user: userId, kind: "monument", name: payload.name },
+        { $set: photoFields },
+        { new: true }
+      ).lean();
+      return { visit, newVisit: false };
+    }
+    throw err;
+  }
+}
+
+async function listMonumentVisits(userId) {
+  return mongoose.model("PlaceVisit").find({ user: userId, kind: "monument" }).sort({ updatedAt: -1 }).lean();
+}
+
 async function setUserStats(userId, body) {
   const stats = {};
   for (const meta of STAT_META) {
@@ -462,6 +511,8 @@ module.exports = {
   applyTravelLog,
   logTripFromForm,
   recordTripFromForm,
+  recordMonumentVisit,
+  listMonumentVisits,
   setUserStats,
   createTraveler,
   presentTraveler,

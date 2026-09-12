@@ -1,0 +1,21 @@
+<%- include("partials/guest-top") %>
+
+<section class="auth-card card-panel">
+  <p class="eyebrow">New traveler</p>
+  <h1>Create account</h1>
+  <p class="lede">No real signup yet. Submit the form and you will enter as the test traveler.</p>
+  <form method="post" action="/signup">
+    <label class="form-label" for="displayName">Name</label>
+    <input class="form-control mb-3" id="displayName" name="displayName" placeholder="Your name" />
+    <label class="form-label" for="email">Email</label>
+    <input class="form-control mb-3" id="email" name="email" type="email" placeholder="you@example.com" />
+    <label class="form-label" for="password">Password</label>
+    <input class="form-control mb-4" id="password" name="password" type="password" placeholder="Create a password" />
+    <div class="landing-actions">
+      <button class="btn btn-wp" type="submit">Create account</button>
+      <a class="btn btn-ghost" href="/login">Log in</a>
+    </div>
+  </form>
+</section>
+
+<%- include("partials/guest-bottom") %>

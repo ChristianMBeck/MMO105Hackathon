@@ -1,8 +1,12 @@
 require("dotenv").config();
 
 const path = require("path");
+const fs = require("fs");
+const crypto = require("crypto");
 const express = require("express");
 const session = require("express-session");
+const multer = require("multer");
+const { extractGps, matchFamous } = require("./lib/identify");
 const {
   connect,
   mongoose,
@@ -13,12 +17,15 @@ const {
   LADDER,
   logTripFromForm,
   recordTripFromForm,
+  recordMonumentVisit,
+  listMonumentVisits,
   setUserStats,
   createTraveler,
   presentTraveler,
   rankFromScore,
   formatScore,
   formatStat,
+  SCORE_WEIGHTS,
 } = require("./db");
 
 const DEFAULT_URI = "mongodb://127.0.0.1:27017/travel-log";
@@ -31,6 +38,20 @@ app.set("views", path.join(__dirname, "views"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+const PHOTOS_DIR = path.join(__dirname, "public", "monument-photos");
+fs.mkdirSync(PHOTOS_DIR, { recursive: true });
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter(_req, file, cb) {
+    const typeOk = /image\/(jpeg|png|webp|heic|heif)/i.test(file.mimetype);
+    const nameOk = /\.(jpe?g|png|webp|heic|heif)$/i.test(file.originalname || "");
+    if (typeOk || nameOk) return cb(null, true);
+    cb(new Error("Please upload a JPEG, PNG, WebP, or HEIC photo."));
+  },
+});
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "waypoint-dev-secret",
@@ -60,19 +81,28 @@ function todayStamp() {
 }
 
 async function currentUser(req) {
-  if (req.session.travelerId) {
-    const found = await User.findById(req.session.travelerId);
-    if (found) return found;
+  if (!req.session.travelerId) return null;
+  return User.findById(req.session.travelerId);
+}
+
+async function enterAsTestUser(req) {
+  let user = await User.findOne({ username: "jordan" });
+  if (!user) user = await User.findOne().sort({ score: -1, username: 1 });
+  if (!user) {
+    user = await createTraveler({
+      displayName: "Jordan Lee",
+      handle: "jordan",
+      homeBase: "Demo",
+    });
   }
-  const first = await User.findOne().sort({ score: -1, username: 1 });
-  if (first) req.session.travelerId = String(first._id);
-  return first;
+  req.session.travelerId = String(user._id);
+  return user;
 }
 
 function requireTraveler(req, res, next) {
   if (res.locals.traveler) return next();
-  flash(req, "error", "Create or pick a traveler first.");
-  return res.redirect("/profile");
+  flash(req, "error", "Log in to continue.");
+  return res.redirect("/login");
 }
 
 app.use(
@@ -88,7 +118,41 @@ app.use(
   })
 );
 
-app.get("/", (_req, res) => res.redirect("/hub"));
+app.get("/", (_req, res) => {
+  res.render("home", { page: "home", title: "Home" });
+});
+
+app.get("/login", (req, res) => {
+  if (res.locals.traveler) return res.redirect("/hub");
+  res.render("login", { page: "login", title: "Log in" });
+});
+
+app.get("/signup", (req, res) => {
+  if (res.locals.traveler) return res.redirect("/hub");
+  res.render("signup", { page: "signup", title: "Create account" });
+});
+
+app.post(
+  "/login",
+  asyncHandler(async (req, res) => {
+    await enterAsTestUser(req);
+    flash(req, "success", "Signed in as the test traveler.");
+    return req.session.save(() => res.redirect("/hub"));
+  })
+);
+
+app.post(
+  "/signup",
+  asyncHandler(async (req, res) => {
+    await enterAsTestUser(req);
+    flash(req, "success", "Account created — entering as the test traveler.");
+    return req.session.save(() => res.redirect("/hub"));
+  })
+);
+
+app.get("/logout", (req, res) => {
+  req.session.destroy(() => res.redirect("/"));
+});
 
 app.get(
   "/hub",
@@ -164,6 +228,73 @@ app.get("/stats", requireTraveler, (_req, res) => {
   res.render("stats", { page: "stats", title: "Stats" });
 });
 
+app.get(
+  "/monuments",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    res.render("monuments", {
+      page: "monuments",
+      title: "Monuments",
+      error: null,
+      latest: req.session.latestMonument || null,
+      entries: await listMonumentVisits(req.userDoc._id),
+    });
+    delete req.session.latestMonument;
+  })
+);
+
+app.post(
+  "/monuments/upload",
+  requireTraveler,
+  (req, res, next) => {
+    upload.single("photo")(req, res, (err) => {
+      if (!err) return next();
+      const message =
+        err.code === "LIMIT_FILE_SIZE" ? "Photo must be 5MB or smaller." : err.message || "Could not upload that photo.";
+      flash(req, "error", message);
+      res.redirect("/monuments");
+    });
+  },
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      flash(req, "error", "Choose a photo to upload.");
+      return res.redirect("/monuments");
+    }
+
+    const gps = await extractGps(req.file.buffer);
+    if (!gps) {
+      flash(req, "error", "This photo has no location data. Enable camera location and try another file.");
+      return res.redirect("/monuments");
+    }
+
+    const match = matchFamous(gps.lat, gps.lon);
+    if (!match) {
+      flash(req, "error", "This photo's location does not match a famous monument in our list.");
+      return res.redirect("/monuments");
+    }
+
+    const extMatch = path.extname(req.file.originalname || "").toLowerCase();
+    const safeExt = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"].includes(extMatch) ? extMatch : ".jpg";
+    const filename = `${crypto.randomUUID()}${safeExt}`;
+    fs.writeFileSync(path.join(PHOTOS_DIR, filename), req.file.buffer);
+
+    const result = await recordMonumentVisit(req.userDoc._id, {
+      ...match,
+      lat: gps.lat,
+      lon: gps.lon,
+      photoPath: filename,
+    });
+
+    flash(
+      req,
+      "success",
+      result.newVisit ? `${match.name} added. +${formatScore(SCORE_WEIGHTS.firstMonument)} XP` : `${match.name} was already in your log. Photo updated.`
+    );
+    req.session.latestMonument = { ...result.visit, newVisit: result.newVisit, photoPath: filename };
+    return req.session.save(() => res.redirect("/monuments"));
+  })
+);
+
 app.post(
   "/stats",
   requireTraveler,
@@ -216,6 +347,7 @@ app.get("/ranks", requireTraveler, (_req, res) => {
 
 app.get(
   "/profile",
+  requireTraveler,
   asyncHandler(async (_req, res) => {
     const others = (await User.find().sort({ displayName: 1, username: 1 }).lean()).map(presentTraveler);
     res.render("profile", { page: "profile", title: "Profile", others });

@@ -1,0 +1,53 @@
+<%- include("partials/top") %>
+
+<header class="page-head">
+  <div>
+    <p class="eyebrow">Check-in</p>
+    <h1>Famous monuments</h1>
+    <p class="lede">Upload a photo with GPS. If it was taken near one of about 150 famous sites, it counts as visited and adds XP.</p>
+  </div>
+</header>
+
+<form class="card-panel form-panel" method="post" action="/monuments/upload" enctype="multipart/form-data">
+  <label class="form-label" for="photo">Monument photo</label>
+  <input class="form-control mb-3" type="file" id="photo" name="photo" accept="image/*" required />
+  <button class="btn btn-wp" type="submit">Identify visit</button>
+</form>
+
+<% if (typeof latest !== "undefined" && latest) { %>
+  <section class="card-panel monument-latest">
+    <img src="/monument-photos/<%= latest.photoPath %>" alt="<%= latest.name %>" />
+    <div>
+      <p class="eyebrow"><%= latest.newVisit ? "New visit" : "Already in your log" %></p>
+      <h2><%= latest.name %></h2>
+      <p class="lede"><%= latest.country %></p>
+      <p class="hint"><%= latest.distanceMeters %> m from listed coordinates</p>
+    </div>
+  </section>
+<% } %>
+
+<section class="section-head">
+  <h2>Your monuments</h2>
+  <span class="hint"><%= entries.length %> stored</span>
+</section>
+
+<% if (!entries.length) { %>
+  <div class="empty card-panel">
+    <i class="bi bi-camera"></i>
+    <p>No monument check-ins yet. Take a photo on-site with location enabled.</p>
+  </div>
+<% } else { %>
+  <div class="monument-grid">
+    <% for (const entry of entries) { %>
+      <article class="card-panel monument-card">
+        <% if (entry.photoPath) { %>
+          <img src="/monument-photos/<%= entry.photoPath %>" alt="<%= entry.name %>" />
+        <% } %>
+        <h3><%= entry.name %></h3>
+        <p><%= entry.country || "Monument" %></p>
+      </article>
+    <% } %>
+  </div>
+<% } %>
+
+<%- include("partials/bottom") %>
