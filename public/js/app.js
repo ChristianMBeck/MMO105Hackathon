@@ -21,3 +21,67 @@ function bindChoiceRow(selector) {
 
 bindChoiceRow(".sport-chip");
 bindChoiceRow(".privacy-chip");
+
+const timerDisplay = document.getElementById("live-timer");
+const startBtn = document.getElementById("timer-start");
+const stopBtn = document.getElementById("timer-stop");
+const hoursInput = document.getElementById("timer-hours");
+const minutesInput = document.getElementById("timer-minutes");
+const secondsInput = document.getElementById("timer-seconds");
+const startTimeInput = document.getElementById("timer-start-time");
+
+if (timerDisplay && startBtn && stopBtn) {
+  let elapsedMs = 0;
+  let startedAt = null;
+  let tick = null;
+
+  function pad(value) {
+    return String(value).padStart(2, "0");
+  }
+
+  function parts(ms) {
+    const total = Math.floor(Math.max(0, ms) / 1000);
+    return {
+      hours: Math.floor(total / 3600),
+      minutes: Math.floor((total % 3600) / 60),
+      seconds: total % 60,
+    };
+  }
+
+  function render() {
+    const running = startedAt ? Date.now() - startedAt : 0;
+    const split = parts(elapsedMs + running);
+    timerDisplay.textContent = `${pad(split.hours)}:${pad(split.minutes)}:${pad(split.seconds)}`;
+    if (hoursInput) hoursInput.value = split.hours;
+    if (minutesInput) minutesInput.value = split.minutes;
+    if (secondsInput) secondsInput.value = split.seconds;
+  }
+
+  startBtn.addEventListener("click", () => {
+    if (startedAt) return;
+    if (!elapsedMs && startTimeInput) {
+      const now = new Date();
+      startTimeInput.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+    startedAt = Date.now();
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    timerDisplay.classList.add("running");
+    tick = setInterval(render, 250);
+    render();
+  });
+
+  stopBtn.addEventListener("click", () => {
+    if (!startedAt) return;
+    elapsedMs += Date.now() - startedAt;
+    startedAt = null;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    startBtn.textContent = "Resume";
+    timerDisplay.classList.remove("running");
+    clearInterval(tick);
+    render();
+  });
+
+  document.getElementById("record-form")?.addEventListener("submit", render);
+}

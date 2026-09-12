@@ -15,6 +15,7 @@
 }
 
 * { box-sizing: border-box; }
+html { color-scheme: dark; }
 html, body { min-height: 100%; }
 body {
   margin: 0;
@@ -389,6 +390,22 @@ a:hover { color: #7af0e3; }
   padding: 0.8rem 1rem;
   color: var(--muted);
   font-size: 0.85rem;
+}
+.timer-panel { text-align: center; }
+.live-timer {
+  font-family: var(--display);
+  font-size: clamp(2.6rem, 8vw, 4.2rem);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  margin: 0.4rem 0 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.live-timer.running { color: var(--accent); }
+.timer-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
 }
 .metrics-row {
   display: grid;
