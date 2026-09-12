@@ -128,7 +128,11 @@
 
   <section class="card-panel">
     <div class="section-head tight">
+<<<<<<< Updated upstream
       <h2>Top of the board</h2>
+=======
+        <h2>Global Leaderboard</h2>
+>>>>>>> Stashed changes
       <a href="/leaderboard">Full leaderboard</a>
     </div>
     <ol class="mini-board">
@@ -152,6 +156,27 @@
         </li>
         <% } %>
     </ol>
+    <div class="section-head tight following-hub-head">
+      <h2>Following Leaderboard</h2>
+    </div>
+    <% const followBoard = typeof followingTravelers !== "undefined" && followingTravelers.length ? followingTravelers : []; %>
+    <% if (!followBoard.length) { %>
+      <p class="hint">Follow travelers on Social to see them here.</p>
+    <% } else { %>
+      <ol class="mini-board">
+        <% for (const row of followBoard) { %>
+          <li>
+            <span class="place"><%= row.place %></span>
+            <span class="avatar xs" style="--hue: <%= row.avatarHue %>"><%= row.displayName.slice(0,1) %></span>
+            <span class="who">
+              <strong><%= row.displayName %></strong>
+              <small>@<%= row.handle %></small>
+            </span>
+            <span class="pts"><%= formatScore(row.score) %></span>
+          </li>
+        <% } %>
+      </ol>
+    <% } %>
   </section>
 
   <%- include("partials/bottom") %>

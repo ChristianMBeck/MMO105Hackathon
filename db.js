@@ -608,6 +608,278 @@ async function setUserStats(userId, body) {
   return score;
 }
 
+<<<<<<< Updated upstream
+=======
+const DEMO_COUNTRIES = [
+  "United States",
+  "Canada",
+  "Mexico",
+  "Brazil",
+  "Peru",
+  "France",
+  "Italy",
+  "United Kingdom",
+  "Spain",
+  "Germany",
+  "Portugal",
+  "Greece",
+  "Egypt",
+  "Morocco",
+  "India",
+  "China",
+  "Japan",
+  "South Korea",
+  "Thailand",
+  "Australia",
+];
+
+const DEMO_MONUMENTS = [
+  "Eiffel Tower",
+  "Colosseum",
+  "Big Ben",
+  "Sagrada Família",
+  "Brandenburg Gate",
+  "Pyramids of Giza",
+  "Christ the Redeemer",
+  "Machu Picchu",
+  "Sydney Opera House",
+  "Taj Mahal",
+];
+
+const DEMO_MONUMENT_PHOTOS = {
+  "Eiffel Tower": "demo-eiffel-tower.svg",
+  Colosseum: "demo-colosseum.svg",
+  "Big Ben": "demo-big-ben.svg",
+  "Sagrada Família": "demo-sagrada-familia.svg",
+  "Brandenburg Gate": "demo-brandenburg-gate.svg",
+  "Pyramids of Giza": "demo-pyramids-giza.svg",
+  "Christ the Redeemer": "demo-christ-redeemer.svg",
+  "Machu Picchu": "demo-machu-picchu.svg",
+  "Sydney Opera House": "demo-sydney-opera.svg",
+  "Taj Mahal": "demo-taj-mahal.svg",
+};
+
+async function seedDemoMapForUser(userId) {
+  const PlaceVisit = mongoose.model("PlaceVisit");
+  const countries = await PlaceVisit.countDocuments({ user: userId, kind: "country" });
+  const monuments = await PlaceVisit.countDocuments({ user: userId, kind: "monument" });
+  if (countries < DEMO_COUNTRIES.length || monuments < DEMO_MONUMENTS.length) {
+    await logTripFromForm(userId, {
+      title: "Demo map coverage",
+      occurredOn: "2025-06-15",
+      countries: DEMO_COUNTRIES.join(", "),
+      monuments: DEMO_MONUMENTS.join(", "),
+    });
+  }
+
+  for (const [name, photoPath] of Object.entries(DEMO_MONUMENT_PHOTOS)) {
+    const visit = await PlaceVisit.findOne({ user: userId, kind: "monument", name }).select("photoPath").lean();
+    if (!visit) continue;
+    const current = visit.photoPath || "";
+    if (current && !/^https?:\/\//i.test(current) && !current.startsWith("demo-")) continue;
+    await PlaceVisit.updateOne({ _id: visit._id }, { $set: { photoPath } });
+  }
+}
+
+async function listFollowingIds(userId) {
+  if (!userId) return [];
+  const rows = await mongoose.model("Follow").find({ follower: userId }).select("followee").lean();
+  return rows.map((row) => row.followee);
+}
+
+async function listFollowingLeaderboard(userId) {
+  const followingIds = await listFollowingIds(userId);
+  if (!followingIds.length) return [];
+  const rows = await mongoose.model("User").find({ _id: { $in: followingIds } }).sort({ score: -1, username: 1 }).lean();
+  return rows.map((row, index) => ({
+    ...presentTraveler(row),
+    place: index + 1,
+  }));
+}
+
+async function followUser(followerId, followeeId) {
+  if (String(followerId) === String(followeeId)) throw new Error("You cannot follow yourself.");
+  const Follow = mongoose.model("Follow");
+  const exists = await mongoose.model("User").exists({ _id: followeeId });
+  if (!exists) throw new Error("Traveler not found.");
+  await Follow.updateOne(
+    { follower: followerId, followee: followeeId },
+    { $setOnInsert: { follower: followerId, followee: followeeId } },
+    { upsert: true }
+  );
+}
+
+async function unfollowUser(followerId, followeeId) {
+  await mongoose.model("Follow").deleteOne({ follower: followerId, followee: followeeId });
+}
+
+async function createSocialPost(userId, { body, place, photoPath }) {
+  const text = String(body || "").trim().slice(0, 280);
+  const where = String(place || "").trim().slice(0, 80);
+  const photo = String(photoPath || "").trim();
+  if (!text && !where && !photo) throw new Error("Add a note, place, or photo.");
+  return mongoose.model("Post").create({
+    user: userId,
+    body: text,
+    place: where,
+    photoPath: photo,
+  });
+}
+
+async function setTripPrivacy(userId, tripId, privacy) {
+  if (!["everyone", "followers", "onlyme"].includes(privacy)) {
+    throw new Error("Invalid privacy.");
+  }
+  const trip = await mongoose.model("TravelLog").findOne({ _id: tripId, user: userId });
+  if (!trip) throw new Error("Trip not found.");
+  trip.privacy = privacy;
+  await trip.save();
+  return trip;
+}
+
+function feedAuthor(user) {
+  return presentTraveler(user);
+}
+
+function tripPlaces(trip) {
+  return [...(trip.countries || []), ...(trip.states || []), ...(trip.monuments || [])];
+}
+
+async function listSocialFeed(userId, limit = 40) {
+  const following = await listFollowingIds(userId);
+  const authors = [userId, ...following];
+  const [posts, trips] = await Promise.all([
+    mongoose.model("Post").find({ user: { $in: authors } }).sort({ createdAt: -1 }).limit(limit).populate("user").lean(),
+    mongoose.model("TravelLog").find({
+      user: { $in: authors },
+      privacy: { $in: ["followers", "everyone"] },
+    }).sort({ occurredAt: -1 }).limit(limit).populate("user").lean(),
+  ]);
+
+  const items = [
+    ...posts.map((post) => ({
+      kind: "post",
+      id: String(post._id),
+      at: post.createdAt,
+      author: feedAuthor(post.user),
+      body: post.body || "",
+      place: post.place || "",
+      photoPath: post.photoPath || "",
+    })),
+    ...trips.map((trip) => ({
+      kind: "trip",
+      id: String(trip._id),
+      at: trip.occurredAt || trip.createdAt,
+      author: feedAuthor(trip.user),
+      title: trip.title || "Trip",
+      notes: trip.notes || "",
+      places: tripPlaces(trip),
+      miles: trip.distanceMiles || 0,
+      mode: trip.mode || "",
+      startLocation: trip.startLocation || "",
+      endLocation: trip.endLocation || "",
+    })),
+  ];
+  items.sort((a, b) => new Date(b.at) - new Date(a.at));
+  return items.slice(0, limit);
+}
+
+async function listPeopleToFollow(userId, q = "") {
+  const filter = { _id: { $ne: userId } };
+  const query = String(q || "").trim();
+  if (query) {
+    const rx = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$or = [{ username: rx }, { displayName: rx }];
+  }
+  const users = await mongoose.model("User").find(filter).sort({ displayName: 1, username: 1 }).limit(12).lean();
+  const following = new Set(
+    (await mongoose.model("Follow").find({
+      follower: userId,
+      followee: { $in: users.map((user) => user._id) },
+    }).select("followee").lean()).map((row) => String(row.followee))
+  );
+  return users.map((user) => ({
+    ...presentTraveler(user),
+    following: following.has(String(user._id)),
+  }));
+}
+
+async function seedSocialDemo(jordanId) {
+  const specs = [
+    {
+      displayName: "Maya Chen",
+      handle: "maya",
+      homeBase: "Taipei",
+      posts: [
+        { body: "Sunrise at Fushimi Inari. Empty path, no crowd.", place: "Kyoto", daysAgo: 2 },
+        { body: "Night market run. Still thinking about the scallion pancakes.", place: "Taipei", daysAgo: 8 },
+      ],
+      trips: [
+        { title: "Kyoto week", countries: "Japan", milesFoot: 28, occurredOn: "2026-08-22", notes: "Temples and trains." },
+      ],
+    },
+    {
+      displayName: "Kenji Sato",
+      handle: "kenji",
+      homeBase: "Osaka",
+      posts: [
+        { body: "Coast highway, almost no traffic.", place: "Big Sur", daysAgo: 4 },
+      ],
+      trips: [
+        { title: "PCH drive", countries: "United States", states: "California", milesCar: 420, occurredOn: "2026-07-11", notes: "San Francisco to San Luis Obispo." },
+      ],
+    },
+    {
+      displayName: "Luca Rossi",
+      handle: "luca",
+      homeBase: "Milan",
+      posts: [
+        { body: "First time seeing the Alps from the train window.", place: "Innsbruck", daysAgo: 6 },
+      ],
+      trips: [
+        { title: "Alpine rail", countries: "Austria, Italy", milesTrain: 310, occurredOn: "2026-06-03", notes: "Milan to Innsbruck." },
+      ],
+    },
+  ];
+
+  const Follow = mongoose.model("Follow");
+  const Post = mongoose.model("Post");
+  for (const spec of specs) {
+    let user = await mongoose.model("User").findOne({ username: spec.handle });
+    if (!user) {
+      user = await createTraveler({
+        displayName: spec.displayName,
+        handle: spec.handle,
+        homeBase: spec.homeBase,
+      });
+    }
+    if (!(await Post.countDocuments({ user: user._id }))) {
+      for (const post of spec.posts) {
+        const createdAt = new Date(Date.now() - post.daysAgo * 24 * 60 * 60 * 1000);
+        await Post.create({
+          user: user._id,
+          body: post.body,
+          place: post.place,
+          createdAt,
+        });
+      }
+    }
+    if (!(await mongoose.model("TravelLog").countDocuments({ user: user._id }))) {
+      for (const trip of spec.trips) {
+        await logTripFromForm(user._id, { ...trip, privacy: "followers" });
+      }
+    }
+    if (String(jordanId) !== String(user._id)) {
+      await Follow.updateOne(
+        { follower: jordanId, followee: user._id },
+        { $setOnInsert: { follower: jordanId, followee: user._id } },
+        { upsert: true }
+      );
+    }
+  }
+}
+
+>>>>>>> Stashed changes
 async function createTraveler({ displayName, handle, homeBase }) {
   const UserModel = mongoose.model("User");
   let username = slugifyHandle(handle || displayName);
@@ -657,6 +929,19 @@ module.exports = {
   listMapData,
   setUserStats,
   createTraveler,
+<<<<<<< Updated upstream
+=======
+  seedDemoMapForUser,
+  seedSocialDemo,
+  followUser,
+  unfollowUser,
+  listFollowingIds,
+  listFollowingLeaderboard,
+  createSocialPost,
+  setTripPrivacy,
+  listSocialFeed,
+  listPeopleToFollow,
+>>>>>>> Stashed changes
   presentTraveler,
   rankFromScore,
   formatScore,

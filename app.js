@@ -22,6 +22,18 @@ const {
   listMapData,
   setUserStats,
   createTraveler,
+<<<<<<< Updated upstream
+=======
+  seedDemoMapForUser,
+  seedSocialDemo,
+  followUser,
+  unfollowUser,
+  listFollowingLeaderboard,
+  createSocialPost,
+  setTripPrivacy,
+  listSocialFeed,
+  listPeopleToFollow,
+>>>>>>> Stashed changes
   presentTraveler,
   rankFromScore,
   formatScore,
@@ -115,6 +127,9 @@ app.use(
     delete req.session.flash;
     req.userDoc = await currentUser(req);
     res.locals.traveler = presentTraveler(req.userDoc);
+    res.locals.followingTravelers = req.userDoc
+      ? await listFollowingLeaderboard(req.userDoc._id)
+      : [];
     next();
   })
 );
@@ -348,6 +363,7 @@ app.get(
       title: "Leaderboard",
       q,
       travelers,
+      followingTravelers: res.locals.followingTravelers,
       position: mine ? mine.place : "—",
       total: await User.countDocuments(),
     });
