@@ -74,9 +74,13 @@ body {
 .score-block {
   display: flex;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: 2.5rem;
   flex-wrap: wrap;
   align-items: flex-end;
+}
+
+.score-block > div {
+  min-width: 8rem;
 }
 
 .score-value,

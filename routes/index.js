@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Trip = require("../models/Trip");
 const { requireAuth, requireGuest } = require("../middleware/auth");
-const { logTrip, getLeaderboard } = require("../services/statsService");
+const { logTrip, getLeaderboard, recalculateRanks } = require("../services/statsService");
 const { POINT_VALUES } = require("../config/scoring");
 
 const router = express.Router();
@@ -51,6 +51,7 @@ router.post("/register", requireGuest, async (req, res) => {
       email,
       passwordHash: await bcrypt.hash(password, 10)
     });
+    await recalculateRanks();
 
     req.session.user = {
       id: user._id.toString(),

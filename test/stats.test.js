@@ -133,4 +133,26 @@ describe("travel stats database", async () => {
     assert.equal(board[1].username, "low");
     assert.equal(board[1].rank, 2);
   });
+
+  test("new users receive a rank after ranks are recalculated", async () => {
+    const first = await User.create({
+      username: "first",
+      displayName: "First",
+      email: "first@example.com",
+      passwordHash: "hash"
+    });
+    await logTrip(first._id, { milesInCar: 25, states: ["Maine"] });
+
+    const newbie = await User.create({
+      username: "newbie",
+      displayName: "Newbie",
+      email: "newbie@example.com",
+      passwordHash: "hash"
+    });
+    await recalculateRanks();
+
+    const saved = await User.findById(newbie._id);
+    assert.equal(saved.rank, 2);
+    assert.equal(saved.stats.score, 0);
+  });
 });
