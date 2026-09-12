@@ -475,3 +475,161 @@ a:hover { color: #7af0e3; }
 }
 .auth-card { max-width: 440px; margin: 6vh auto 0; }
 .auth-card h1 { margin-bottom: 0.4rem; }
+
+.map-body .app-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.map-body .page.page-map {
+  max-width: none;
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+.map-body .page.page-map .toast-banner {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 600;
+}
+.map-stage {
+  position: relative;
+  flex: 1;
+  min-height: calc(100vh - 1px);
+}
+#visit-map {
+  position: absolute;
+  inset: 0;
+  background: #07080c;
+  z-index: 1;
+}
+#visit-map .leaflet-control-attribution {
+  background: rgba(7, 8, 12, 0.7);
+  color: var(--muted);
+}
+#visit-map .leaflet-control-attribution a { color: var(--accent); }
+#visit-map .leaflet-bar a {
+  background: var(--panel);
+  color: var(--text);
+  border-bottom-color: var(--line);
+}
+#visit-map .leaflet-bar a:hover { background: #1c2230; }
+.map-overlay {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  width: min(340px, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  overflow: auto;
+  z-index: 500;
+  background: rgba(21, 25, 36, 0.92);
+  backdrop-filter: blur(12px);
+}
+.map-overlay-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+.map-overlay-head h1 { margin: 0; font-size: 1.6rem; }
+.map-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+.map-metrics .k { display: block; color: var(--muted); font-size: 0.75rem; }
+.map-metrics strong { font-size: 1.4rem; }
+.map-filter-label { color: var(--accent); font-size: 0.85rem; margin: 0 0 0.6rem; }
+.map-list { display: flex; flex-direction: column; gap: 0.45rem; }
+.map-list-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: #0c1018;
+  color: var(--text);
+  border-radius: 0.85rem;
+  padding: 0.7rem 0.8rem;
+}
+.map-list-item:hover { border-color: var(--accent); }
+.map-list-item span { color: var(--muted); font-size: 0.8rem; }
+.map-empty { text-align: center; color: var(--muted); padding: 0.5rem 0 0.2rem; }
+.map-empty i { font-size: 1.6rem; color: var(--accent); display: block; margin-bottom: 0.5rem; }
+.map-empty-actions { display: flex; justify-content: center; gap: 0.5rem; margin-top: 0.8rem; }
+.map-legend {
+  display: flex;
+  gap: 1rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 1rem;
+}
+.legend-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  margin-right: 0.35rem;
+  vertical-align: -1px;
+}
+.legend-swatch.country { background: rgba(61, 214, 198, 0.55); box-shadow: 0 0 0 1px #3dd6c6; }
+.legend-swatch.place {
+  background: var(--accent);
+  border-radius: 50%;
+}
+.wp-pin {
+  background: transparent;
+  border: 0;
+}
+.wp-pin span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(61, 214, 198, 0.28), 0 0 12px rgba(61, 214, 198, 0.55);
+}
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+  background: #151924;
+  color: var(--text);
+  border-radius: 0.9rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+.wp-popup { display: flex; flex-direction: column; gap: 0.25rem; min-width: 140px; }
+.wp-popup strong { font-family: var(--display); }
+.wp-popup span { color: var(--muted); font-size: 0.8rem; }
+.wp-popup img {
+  width: 100%;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+.wp-tooltip {
+  background: #151924;
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+
+@media (max-width: 991px) {
+  .map-body .app-main { min-height: calc(100vh - 72px); }
+  .map-stage { min-height: calc(100vh - 58px - 72px); }
+  .map-body .page.page-map { padding-bottom: 0; }
+  .map-overlay {
+    top: auto;
+    bottom: calc(72px + 0.75rem);
+    left: 0.75rem;
+    right: 0.75rem;
+    width: auto;
+    max-height: 42vh;
+  }
+}

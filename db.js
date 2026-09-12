@@ -1,4 +1,6 @@
 const mongoose = require("mongoose");
+const famous = require("./data/famous.json");
+const { canonicalCountryName, countryMatchKeys } = require("./lib/geo");
 
 const { Schema } = mongoose;
 
@@ -14,14 +16,16 @@ const SCORE_WEIGHTS = {
   },
   firstCounty: 50,
   firstState: 200,
+  firstCountry: 150,
   firstMonument: 100,
 };
 
 const TRAVEL_MODES = ["car", "plane", "train", "bike", "foot", "other"];
-const PLACE_KINDS = ["county", "state", "monument"];
+const PLACE_KINDS = ["county", "state", "country", "monument"];
 
 const STAT_META = [
   { key: "distanceTraveled", label: "Distance traveled", icon: "signpost-2", group: "coverage", unit: "mi" },
+  { key: "countriesVisited", label: "Countries visited", icon: "globe2", group: "coverage", unit: "" },
   { key: "countiesVisited", label: "Counties visited", icon: "geo-alt", group: "coverage", unit: "" },
   { key: "statesVisited", label: "States visited", icon: "flag", group: "coverage", unit: "" },
   { key: "monumentsVisited", label: "Monuments visited", icon: "bank", group: "coverage", unit: "" },
@@ -34,6 +38,7 @@ const STAT_META = [
 
 const WEIGHTS = {
   distanceTraveled: 0,
+  countriesVisited: SCORE_WEIGHTS.firstCountry,
   countiesVisited: SCORE_WEIGHTS.firstCounty,
   statesVisited: SCORE_WEIGHTS.firstState,
   monumentsVisited: SCORE_WEIGHTS.firstMonument,
@@ -76,6 +81,7 @@ const SPORT_TO_MODE = {
 const statsSubSchema = new Schema(
   {
     distanceTraveled: { type: Number, default: 0, min: 0 },
+    countriesVisited: { type: Number, default: 0, min: 0 },
     countiesVisited: { type: Number, default: 0, min: 0 },
     statesVisited: { type: Number, default: 0, min: 0 },
     monumentsVisited: { type: Number, default: 0, min: 0 },
@@ -136,6 +142,7 @@ const travelLogSchema = new Schema(
     distanceMiles: { type: Number, default: 0, min: 0 },
     counties: { type: [String], default: [] },
     states: { type: [String], default: [] },
+    countries: { type: [String], default: [] },
     monuments: { type: [String], default: [] },
     scoreAwarded: { type: Number, default: 0, min: 0 },
     sport: { type: String, enum: ["walk", "ride", "drive", "train", "flight", "hike", "paddle", "mixed"], default: "drive" },
@@ -193,6 +200,29 @@ function normalizeNames(names = []) {
   return out;
 }
 
+function findFamousByName(name) {
+  const key = String(name || "").trim().toLowerCase();
+  if (!key) return null;
+  return famous.find((site) => String(site.name).toLowerCase() === key) || null;
+}
+
+function findFamousById(id) {
+  const key = String(id || "").trim();
+  if (!key) return null;
+  return famous.find((site) => site.id === key) || null;
+}
+
+function famousFieldsForMonument(name, famousId) {
+  const site = findFamousById(famousId) || findFamousByName(name);
+  if (!site) return {};
+  return {
+    famousId: site.id,
+    country: site.country,
+    lat: site.lat,
+    lon: site.lon,
+  };
+}
+
 function scoreForMiles(mode, miles) {
   const weight = SCORE_WEIGHTS.miles[mode] ?? SCORE_WEIGHTS.miles.other;
   return miles * weight;
@@ -209,14 +239,20 @@ async function applyTravelLog(travelLog) {
   const counties = normalizeNames(travelLog.counties);
   const states = normalizeNames(travelLog.states);
   const monuments = normalizeNames(travelLog.monuments);
+  const inferredCountries = monuments
+    .map((name) => findFamousByName(name)?.country)
+    .filter(Boolean);
+  const countries = normalizeNames([...(travelLog.countries || []), ...inferredCountries]).map(canonicalCountryName);
   const miles = Number(travelLog.distanceMiles) || 0;
 
   const candidates = [
+    ...countries.map((name) => ({ kind: "country", name, points: SCORE_WEIGHTS.firstCountry })),
     ...counties.map((name) => ({ kind: "county", name, points: SCORE_WEIGHTS.firstCounty })),
     ...states.map((name) => ({ kind: "state", name, points: SCORE_WEIGHTS.firstState })),
     ...monuments.map((name) => ({ kind: "monument", name, points: SCORE_WEIGHTS.firstMonument })),
   ];
 
+  let newCountries = 0;
   let newCounties = 0;
   let newStates = 0;
   let newMonuments = 0;
@@ -224,14 +260,17 @@ async function applyTravelLog(travelLog) {
 
   for (const place of candidates) {
     try {
+      const extra = place.kind === "monument" ? famousFieldsForMonument(place.name) : {};
       await PlaceVisit.create({
         user: travelLog.user,
         kind: place.kind,
         name: place.name,
         firstLoggedAt: travelLog.occurredAt,
         travelLog: travelLog._id,
+        ...extra,
       });
       placePoints += place.points;
+      if (place.kind === "country") newCountries += 1;
       if (place.kind === "county") newCounties += 1;
       if (place.kind === "state") newStates += 1;
       if (place.kind === "monument") newMonuments += 1;
@@ -248,6 +287,7 @@ async function applyTravelLog(travelLog) {
   const inc = {
     score: scoreAwarded,
     "stats.distanceTraveled": miles,
+    "stats.countriesVisited": newCountries,
     "stats.countiesVisited": newCounties,
     "stats.statesVisited": newStates,
     "stats.monumentsVisited": newMonuments,
@@ -257,7 +297,7 @@ async function applyTravelLog(travelLog) {
   await User.updateOne({ _id: travelLog.user }, { $inc: inc });
   await mongoose.model("TravelLog").updateOne({ _id: travelLog._id }, { $set: { scoreAwarded } });
 
-  return { scoreAwarded, newCounties, newStates, newMonuments };
+  return { scoreAwarded, newCountries, newCounties, newStates, newMonuments };
 }
 
 function formatScore(value) {
@@ -339,6 +379,7 @@ function scoreFromStats(stats = {}) {
 async function logTripFromForm(userId, body) {
   const counties = parseNameList(body.counties);
   const states = parseNameList(body.states);
+  const countries = parseNameList(body.countries).map(canonicalCountryName);
   const monuments = parseNameList(body.monuments);
   const title = String(body.title || "").trim();
   const notes = String(body.note || body.notes || "").trim();
@@ -347,7 +388,7 @@ async function logTripFromForm(userId, body) {
     .map(([statKey, mode]) => ({ mode, miles: Number(body[statKey]) || 0 }))
     .filter((entry) => entry.miles > 0);
 
-  if (!modeMiles.length && !counties.length && !states.length && !monuments.length) {
+  if (!modeMiles.length && !counties.length && !states.length && !countries.length && !monuments.length) {
     throw new Error("Add miles or at least one place to log a trip.");
   }
 
@@ -364,6 +405,7 @@ async function logTripFromForm(userId, body) {
       distanceMiles: leg.miles,
       counties: first ? counties : [],
       states: first ? states : [],
+      countries: first ? countries : [],
       monuments: first ? monuments : [],
     });
     const result = await applyTravelLog(travelLog);
@@ -413,47 +455,144 @@ async function recordTripFromForm(userId, body) {
   return result.scoreAwarded;
 }
 
-async function recordMonumentVisit(userId, payload) {
+async function recordCountryVisit(userId, countryName, extras = {}) {
+  const name = canonicalCountryName(countryName);
+  if (!name) return { visit: null, newVisit: false };
   const PlaceVisit = mongoose.model("PlaceVisit");
-  const UserModel = mongoose.model("User");
-  const photoFields = {
-    famousId: payload.famousId || "",
-    country: payload.country || "",
-    lat: payload.lat,
-    lon: payload.lon,
-    distanceMeters: payload.distanceMeters,
-    photoPath: payload.photoPath || "",
-  };
-
   try {
     const visit = await PlaceVisit.create({
       user: userId,
-      kind: "monument",
-      name: payload.name,
-      firstLoggedAt: new Date(),
-      ...photoFields,
+      kind: "country",
+      name,
+      firstLoggedAt: extras.firstLoggedAt || new Date(),
+      travelLog: extras.travelLog,
+      country: name,
     });
-    await UserModel.updateOne(
-      { _id: userId },
-      { $inc: { score: SCORE_WEIGHTS.firstMonument, "stats.monumentsVisited": 1 } }
-    );
-    await UserModel.recomputeRanks();
     return { visit: visit.toObject(), newVisit: true };
   } catch (err) {
     if (err && err.code === 11000) {
-      const visit = await PlaceVisit.findOneAndUpdate(
-        { user: userId, kind: "monument", name: payload.name },
-        { $set: photoFields },
-        { new: true }
-      ).lean();
+      const visit = await PlaceVisit.findOne({ user: userId, kind: "country", name }).lean();
       return { visit, newVisit: false };
     }
     throw err;
   }
 }
 
+async function recordMonumentVisit(userId, payload) {
+  const PlaceVisit = mongoose.model("PlaceVisit");
+  const UserModel = mongoose.model("User");
+  const photoFields = {
+    famousId: payload.famousId || "",
+    country: canonicalCountryName(payload.country || ""),
+    lat: payload.lat,
+    lon: payload.lon,
+    distanceMeters: payload.distanceMeters,
+    photoPath: payload.photoPath || "",
+  };
+
+  let newVisit = false;
+  let visit;
+  try {
+    visit = await PlaceVisit.create({
+      user: userId,
+      kind: "monument",
+      name: payload.name,
+      firstLoggedAt: new Date(),
+      ...photoFields,
+    });
+    visit = visit.toObject();
+    newVisit = true;
+  } catch (err) {
+    if (err && err.code === 11000) {
+      visit = await PlaceVisit.findOneAndUpdate(
+        { user: userId, kind: "monument", name: payload.name },
+        { $set: photoFields },
+        { new: true }
+      ).lean();
+    } else {
+      throw err;
+    }
+  }
+
+  const countryResult = await recordCountryVisit(userId, photoFields.country);
+  const inc = {};
+  if (newVisit) {
+    inc.score = (inc.score || 0) + SCORE_WEIGHTS.firstMonument;
+    inc["stats.monumentsVisited"] = 1;
+  }
+  if (countryResult.newVisit) {
+    inc.score = (inc.score || 0) + SCORE_WEIGHTS.firstCountry;
+    inc["stats.countriesVisited"] = 1;
+  }
+  if (Object.keys(inc).length) {
+    await UserModel.updateOne({ _id: userId }, { $inc: inc });
+    await UserModel.recomputeRanks();
+  }
+  return { visit, newVisit };
+}
+
 async function listMonumentVisits(userId) {
   return mongoose.model("PlaceVisit").find({ user: userId, kind: "monument" }).sort({ updatedAt: -1 }).lean();
+}
+
+async function listMapData(userId) {
+  const visits = await mongoose.model("PlaceVisit").find({ user: userId }).sort({ firstLoggedAt: -1 }).lean();
+  const countriesByKey = new Map();
+  const places = [];
+
+  function addCountry(rawName, source) {
+    const name = canonicalCountryName(rawName);
+    if (!name) return;
+    const key = name.toLowerCase();
+    const existing = countriesByKey.get(key);
+    const firstLoggedAt = source.firstLoggedAt || source.updatedAt || null;
+    if (!existing) {
+      countriesByKey.set(key, {
+        name,
+        matchKeys: countryMatchKeys(name),
+        placeCount: 0,
+        firstLoggedAt,
+      });
+      return;
+    }
+    if (firstLoggedAt && (!existing.firstLoggedAt || new Date(firstLoggedAt) < new Date(existing.firstLoggedAt))) {
+      existing.firstLoggedAt = firstLoggedAt;
+    }
+  }
+
+  for (const visit of visits) {
+    if (visit.kind === "country") {
+      addCountry(visit.name || visit.country, visit);
+    }
+    if (visit.kind !== "monument") continue;
+
+    const site = findFamousById(visit.famousId) || findFamousByName(visit.name);
+    const lat = Number.isFinite(visit.lat) ? visit.lat : site?.lat ?? null;
+    const lon = Number.isFinite(visit.lon) ? visit.lon : site?.lon ?? null;
+    const country = canonicalCountryName(visit.country || site?.country || "");
+    if (country) addCountry(country, visit);
+    if (lat == null || lon == null) continue;
+    places.push({
+      id: String(visit._id),
+      name: visit.name,
+      country,
+      lat,
+      lon,
+      kind: visit.kind,
+      photoPath: visit.photoPath || "",
+      firstLoggedAt: visit.firstLoggedAt || visit.updatedAt || null,
+    });
+  }
+
+  for (const place of places) {
+    const country = countriesByKey.get(place.country.toLowerCase());
+    if (country) country.placeCount += 1;
+  }
+
+  return {
+    countries: [...countriesByKey.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    places: places.sort((a, b) => a.name.localeCompare(b.name)),
+  };
 }
 
 async function setUserStats(userId, body) {
@@ -513,6 +652,7 @@ module.exports = {
   recordTripFromForm,
   recordMonumentVisit,
   listMonumentVisits,
+  listMapData,
   setUserStats,
   createTraveler,
   presentTraveler,

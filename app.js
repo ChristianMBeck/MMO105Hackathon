@@ -19,6 +19,7 @@ const {
   recordTripFromForm,
   recordMonumentVisit,
   listMonumentVisits,
+  listMapData,
   setUserStats,
   createTraveler,
   presentTraveler,
@@ -227,6 +228,22 @@ app.post(
 app.get("/stats", requireTraveler, (_req, res) => {
   res.render("stats", { page: "stats", title: "Stats" });
 });
+
+app.get("/map", requireTraveler, (_req, res) => {
+  res.render("map", {
+    page: "map",
+    title: "Map",
+    cartoApiKey: process.env.CARTO_API_KEY || "",
+  });
+});
+
+app.get(
+  "/api/map",
+  requireTraveler,
+  asyncHandler(async (req, res) => {
+    res.json(await listMapData(req.userDoc._id));
+  })
+);
 
 app.get(
   "/monuments",

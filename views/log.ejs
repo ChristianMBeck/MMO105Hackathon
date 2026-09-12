@@ -25,9 +25,17 @@
   </div>
 
   <h2 class="form-section">Coverage</h2>
-  <p class="hint">Comma-separated names. First time you log a place, it bumps counties, states, and monuments.</p>
+  <p class="hint">Comma-separated names. First time you log a place, it bumps countries, counties, states, and monuments.</p>
   <div class="row g-3">
-    <div class="col-md-4">
+    <div class="col-md-6 col-xl-3">
+      <label class="form-label" for="countries">Countries</label>
+      <div class="input-affix">
+        <i class="bi bi-globe2"></i>
+        <input class="form-control" id="countries" name="countries" placeholder="France, Japan" />
+      </div>
+      <small class="hint">+<%= WEIGHTS.countriesVisited %> XP each new country</small>
+    </div>
+    <div class="col-md-6 col-xl-3">
       <label class="form-label" for="counties">Counties</label>
       <div class="input-affix">
         <i class="bi bi-geo-alt"></i>
@@ -35,7 +43,7 @@
       </div>
       <small class="hint">+<%= WEIGHTS.countiesVisited %> XP each new county</small>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-6 col-xl-3">
       <label class="form-label" for="states">States</label>
       <div class="input-affix">
         <i class="bi bi-flag"></i>
@@ -43,7 +51,7 @@
       </div>
       <small class="hint">+<%= WEIGHTS.statesVisited %> XP each new state</small>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-6 col-xl-3">
       <label class="form-label" for="monuments">Monuments</label>
       <div class="input-affix">
         <i class="bi bi-bank"></i>

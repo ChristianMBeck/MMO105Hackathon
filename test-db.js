@@ -108,6 +108,7 @@ async function run() {
     expectedMiles("car", 120) +
     SCORE_WEIGHTS.firstCounty +
     SCORE_WEIGHTS.firstState +
+    SCORE_WEIGHTS.firstCountry +
     SCORE_WEIGHTS.firstMonument +
     expectedMiles("car", 80) +
     SCORE_WEIGHTS.firstCounty;
@@ -116,6 +117,7 @@ async function run() {
     expectedMiles("plane", 2500) +
     SCORE_WEIGHTS.firstCounty +
     SCORE_WEIGHTS.firstState +
+    SCORE_WEIGHTS.firstCountry +
     SCORE_WEIGHTS.firstMonument;
 
   const samExpected =
@@ -133,12 +135,14 @@ async function run() {
   assert(alexFresh.stats.countiesVisited === 2, "alex counties (unique)");
   assert(alexFresh.stats.statesVisited === 1, "alex states stay unique after repeat NY");
   assert(alexFresh.stats.monumentsVisited === 1, "alex monuments");
+  assert(alexFresh.stats.countriesVisited === 1, "alex countries from Statue of Liberty");
 
   assert(jordanFresh.stats.milesFlown === 2500, "jordan flown miles");
+  assert(jordanFresh.stats.countriesVisited === 1, "jordan countries from Hollywood Sign");
   assert(samFresh.stats.milesFoot === 8, "sam foot miles");
 
   const alexVisits = await PlaceVisit.countDocuments({ user: alex._id });
-  assert(alexVisits === 4, `alex unique places (2 counties, 1 state, 1 monument), got ${alexVisits}`);
+  assert(alexVisits === 5, `alex unique places (2 counties, 1 state, 1 country, 1 monument), got ${alexVisits}`);
 
   const board = await User.leaderboard();
   assert(board[0].username === "jordan", "jordan should rank first");

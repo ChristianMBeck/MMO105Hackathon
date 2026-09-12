@@ -1,0 +1,45 @@
+<%- include("partials/top") %>
+
+<section class="map-stage">
+  <div id="visit-map" role="application" aria-label="Visited countries and places"></div>
+
+  <aside class="map-overlay card-panel" id="map-overlay">
+    <header class="map-overlay-head">
+      <div>
+        <p class="eyebrow">World log</p>
+        <h1>Your map</h1>
+      </div>
+      <button class="btn btn-ghost sm" type="button" id="map-clear" hidden>All countries</button>
+    </header>
+
+    <div class="map-metrics">
+      <div>
+        <span class="k">Countries</span>
+        <strong id="map-country-count">0</strong>
+      </div>
+      <div>
+        <span class="k">Places</span>
+        <strong id="map-place-count">0</strong>
+      </div>
+    </div>
+
+    <p class="map-filter-label" id="map-filter-label" hidden></p>
+    <div class="map-list" id="map-list"></div>
+
+    <div class="map-empty" id="map-empty" hidden>
+      <i class="bi bi-globe2"></i>
+      <p>No countries or places yet. Log a trip or check in at a monument to light up the map.</p>
+      <div class="map-empty-actions">
+        <a class="btn btn-wp sm" href="/log">Log a trip</a>
+        <a class="btn btn-ghost sm" href="/monuments">Check in</a>
+      </div>
+    </div>
+
+    <div class="map-legend">
+      <span><i class="legend-swatch country"></i> Visited country</span>
+      <span><i class="legend-swatch place"></i> Place pin</span>
+    </div>
+  </aside>
+</section>
+
+<%- include("partials/bottom") %>

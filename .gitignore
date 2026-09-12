@@ -1,2 +1,3 @@
-    public/monument-photos/*
-    !public/monument-photos/.gitkeep
+.env
+public/monument-photos/*
+!public/monument-photos/.gitkeep
