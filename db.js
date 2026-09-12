@@ -215,3 +215,5 @@ module.exports = {
   PLACE_KINDS,
   applyTravelLog,
 };
+
+

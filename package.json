@@ -5,7 +5,8 @@
   "description": "Travel log with stats, scoring, and a global leaderboard",
   "main": "db.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node test-db.js"
   },
   "engines": {
     "node": ">=18"
